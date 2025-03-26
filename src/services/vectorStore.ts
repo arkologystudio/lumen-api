@@ -63,6 +63,7 @@ export const upsertCurriculumModule = async (
     const embedding = convertToNumberArray(embeddingResult);
     console.log("Embedding dimension:", embedding.length);
     console.log("Embedding result", embeddingResult);
+
     await handleCollectionCreation();
     await milvusClient.insert({
       collection_name: COLLECTION_NAME,
@@ -75,7 +76,7 @@ export const upsertCurriculumModule = async (
       ],
     });
 
-    // Add flush operation
+    // Ensure data is persisted
     await milvusClient.flush({
       collection_names: [COLLECTION_NAME],
     });
@@ -87,22 +88,27 @@ export const upsertCurriculumModule = async (
   }
 };
 
+/**
+ * Query Milvus for similar modules, using COSINE similarity.
+ * - topK: how many items to retrieve
+ * - threshold: minimum similarity required to be considered a match
+ */
 export const querySimilarModules = async (
   query: string,
-  topK: number = 3
+  topK: number = 3,
+  threshold: number = 0.8
 ): Promise<StoredCurriculumModule[]> => {
   console.log("Querying similar modules");
+  await handleCollectionCreation(); // Ensure collection is ready
 
-  // Ensure collection exists and is properly set up
-  await handleCollectionCreation();
-
+  // Embed the incoming query
   const queryEmbeddingResult = await embedText(query);
   console.log("Query embedding result", queryEmbeddingResult);
 
   const queryEmbedding = convertToNumberArray(queryEmbeddingResult);
   console.log("Query embedding success");
 
-  // Search in Milvus with search parameters
+  // Search with COSINE similarity (higher = more similar)
   const searchResults = await milvusClient.search({
     collection_name: COLLECTION_NAME,
     vectors: [queryEmbedding],
@@ -118,9 +124,21 @@ export const querySimilarModules = async (
 
   console.log("Search results", searchResults);
 
-  // Fetch full module data from database for each match
+  // Filter out any results whose similarity is below our threshold.
+  // Remember: with COSINE, `score` is between 0 and 1, so we do score >= threshold.
+  const filteredResults = searchResults.results.filter(
+    (r) => r.score >= threshold
+  );
+
+  // If no results pass the threshold, return an empty array
+  if (filteredResults.length === 0) {
+    console.log("No search results above threshold, returning []");
+    return [];
+  }
+
+  // Fetch the matching modules from the DB
   const modules = await Promise.all(
-    searchResults.results.map(async (result) => {
+    filteredResults.map(async (result) => {
       const moduleId = result.id;
       const module = await dbService.getCurriculumModuleById(moduleId);
       if (!module) {
@@ -138,16 +156,16 @@ export const querySimilarModules = async (
 
 export const initMilvusCollection = async () => {
   try {
-    // Check if collection exists
+    // Check if the collection already exists
     const hasCollection = await milvusClient.hasCollection({
       collection_name: COLLECTION_NAME,
     });
 
+    // If it doesn't exist, create one
     if (!hasCollection) {
-      // Create collection
       await milvusClient.createCollection({
         collection_name: COLLECTION_NAME,
-        dimension: 384, // Adjust this based on your embedding dimension
+        dimension: 384, // Adjust if your actual embedding dimension is different
         fields: [
           {
             name: "id",
@@ -160,7 +178,7 @@ export const initMilvusCollection = async () => {
             name: "embedding",
             description: "Vector field",
             data_type: DataType.FloatVector,
-            dim: 384, // Adjust this based on your embedding dimension
+            dim: 384, // Adjust if your actual embedding dimension is different
           },
           {
             name: "url",
@@ -171,16 +189,16 @@ export const initMilvusCollection = async () => {
         ],
       });
 
-      // Create index
+      // Create an index for vector search
       await milvusClient.createIndex({
         collection_name: COLLECTION_NAME,
         field_name: "embedding",
         index_type: "IVF_FLAT",
-        metric_type: "COSINE",
+        metric_type: "COSINE", // Using cosine similarity
         params: { nlist: 1024 },
       });
 
-      // Load collection
+      // Load collection into memory
       await milvusClient.loadCollection({
         collection_name: COLLECTION_NAME,
       });
@@ -191,9 +209,7 @@ export const initMilvusCollection = async () => {
   }
 };
 
-// Comment out this line since we'll call it from index.ts now
-// initMilvusCollection().catch(console.error);
-
+// Called by upsert/search to ensure collection is ready
 const handleCollectionCreation = async () => {
   try {
     const exists = await milvusClient.hasCollection({
@@ -213,7 +229,7 @@ const handleCollectionCreation = async () => {
           {
             name: "embedding",
             data_type: DataType.FloatVector,
-            dim: 1024,
+            dim: 1024, // Use 1024 if your actual embeddings are size 1024
           },
           {
             name: "url",
@@ -226,7 +242,7 @@ const handleCollectionCreation = async () => {
       console.log("Created Milvus collection:", COLLECTION_NAME);
     }
 
-    // Create index if it doesn't exist
+    // Create the index if it doesn't exist
     try {
       await milvusClient.createIndex({
         collection_name: COLLECTION_NAME,
@@ -254,7 +270,7 @@ const handleCollectionCreation = async () => {
 export const getEmbeddingCount = async (): Promise<number> => {
   await handleCollectionCreation();
 
-  // Add explicit flush before getting count
+  // Ensure all inserted data is flushed
   await milvusClient.flush({
     collection_names: [COLLECTION_NAME],
   });
@@ -263,9 +279,11 @@ export const getEmbeddingCount = async (): Promise<number> => {
     collection_name: COLLECTION_NAME,
   });
   console.log("Collection statistics:", stats);
+
   const rowCount =
     stats.stats.find((stat) => stat.key === "row_count")?.value || "0";
   console.log("Row count found:", rowCount);
+
   return parseInt(rowCount.toString());
 };
 
