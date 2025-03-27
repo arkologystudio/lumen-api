@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import { initMilvusCollection } from "./services/vectorStore";
 import embeddingRoutes from "./routes/embeddingRoutes";
 import moduleRoute from "./routes/moduleRoute";
@@ -7,6 +8,16 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Add middleware
+app.use(
+  cors({
+    origin: [
+      "http://localhost:3000", // Dev
+      "http://localhost:3333", // Dev
+      "https://www.culturehack.io", // Prod
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Add routes
