@@ -58,21 +58,6 @@ services:
       - seccomp:unconfined
     restart: on-failure
 
-  mariadb:
-    container_name: mariadb
-    image: mariadb:10.6
-    restart: always
-    environment:
-      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD}
-      MARIADB_DATABASE: ${DB_NAME}
-    ports:
-      - "3306:3306"
-    volumes:
-      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/mariadb:/var/lib/mysql
-      - ./backup.sql:/docker-entrypoint-initdb.d/backup.sql
-    networks:
-      - milvus-net
-
   express-app:
     container_name: express-app
     build:
@@ -92,9 +77,12 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - MILVUS_ADDRESS=standalone:19530
+      - WP_API_URL=${WP_API_URL}
+      - WP_USE_CUSTOM_ENDPOINT=${WP_USE_CUSTOM_ENDPOINT}
+    extra_hosts:
+      - "culturehack.test:host-gateway"
     depends_on:
-      - mariadb
-      - milvus-standalone
+      - standalone
     networks:
       - milvus-net
     restart: on-failure

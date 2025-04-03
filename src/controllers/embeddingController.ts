@@ -1,20 +1,22 @@
 import { RequestHandler } from "express";
-import { dbService } from "../services/database";
 import {
-  upsertCurriculumModule,
+  upsertCurriculumBlock,
   querySimilarModules,
   getEmbeddingCount,
   dropCollection as dropVectorStoreCollection,
 } from "../services/vectorStore";
+import { getCurriculumModulesWithBlocks } from "../services/wp_client";
 
 export const embedCurriculumContent: RequestHandler = async (req, res) => {
   try {
     // Fetch all curriculum modules from the database
-    const modules = await dbService.getCurriculumModules();
+    const modules = await getCurriculumModulesWithBlocks();
 
     // Embed and store each module
     for (const module of modules) {
-      await upsertCurriculumModule(module);
+      for (const block of module.blocks) {
+        await upsertCurriculumBlock(module, block);
+      }
     }
 
     res.json({
@@ -48,28 +50,69 @@ export const searchCurriculumModules: RequestHandler = async (req, res) => {
     // Search for similar modules
     const similarModules = await querySimilarModules(query, topK || 3);
 
+    // Check if we found any results
+    if (similarModules.length === 0) {
+      console.log("No matching modules found for query:", query);
+      res.json({
+        success: true,
+        results: [],
+        message: "No matching content found for your query.",
+      });
+      return;
+    }
+
     res.json({
       success: true,
       results: similarModules,
     });
   } catch (error) {
     console.error("Error searching curriculum modules:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to search curriculum modules",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+
+    // More specific error messages based on error type
+    if (error instanceof Error) {
+      if (error.message.includes("THRESHOLD")) {
+        res.status(500).json({
+          success: false,
+          message:
+            "Configuration error: THRESHOLD environment variable is not properly set",
+          error: error.message,
+        });
+      } else if (error.message.includes("Failed to fetch curriculum module")) {
+        res.status(500).json({
+          success: false,
+          message:
+            "WordPress API error: Unable to fetch content from WordPress",
+          error: error.message,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Failed to search curriculum modules",
+          error: error.message,
+        });
+      }
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to search curriculum modules",
+        error: "Unknown error",
+      });
+    }
   }
 };
 
 export const embedTest: RequestHandler = async (req, res) => {
   try {
     // Fetch all curriculum modules from the database
-    const modules = await dbService.getCurriculumModules();
+    const modules = await getCurriculumModulesWithBlocks();
 
-    // Embed and store each module
+    // Use the first module consistently for both module and blocks
+    const testModule = modules[0];
 
-    await upsertCurriculumModule(modules[0]);
+    // Embed and store each block from the test module
+    for (const block of testModule.blocks) {
+      await upsertCurriculumBlock(testModule, block);
+    }
 
     res.json({
       success: true,

@@ -1,15 +1,23 @@
 import { embedText } from "./embedding";
-import { CurriculumModule } from "./database";
+
 import { FeatureExtractionOutput } from "@huggingface/inference";
 import { MilvusClient, DataType } from "@zilliz/milvus2-sdk-node";
 import { ENV } from "../config/env";
-import { dbService } from "./database";
+import { CurriculumModule, GutenbergBlock } from "../types";
+import { getCurriculumModuleById } from "./wp_client";
 
 interface StoredCurriculumModule {
   id: number;
   embedding: number[];
   url: string;
-  metadata: Record<string, string>;
+  metadata: {
+    blocks: GutenbergBlock[];
+    matchingBlocks: {
+      blockId: string;
+      content: string;
+      score: number;
+    }[];
+  };
 }
 
 // Add this to log connection attempts
@@ -55,33 +63,61 @@ const convertToNumberArray = (embedding: FeatureExtractionOutput): number[] => {
   return [];
 };
 
-export const upsertCurriculumModule = async (
-  module: CurriculumModule
+export const upsertCurriculumBlock = async (
+  module: CurriculumModule,
+  block: GutenbergBlock
 ): Promise<void> => {
   try {
-    const embeddingResult = await embedText(module.content);
+    if (!block.attrs.id) {
+      console.log("Block has no ID, skipping");
+      return;
+    }
+    console.log(
+      "Beginning upsert for module:",
+      module.id,
+      "block:",
+      block.attrs.id
+    );
+
+    const embeddingResult = await embedText(block.innerHTML);
     const embedding = convertToNumberArray(embeddingResult);
     console.log("Embedding dimension:", embedding.length);
-    console.log("Embedding result", embeddingResult);
 
     await handleCollectionCreation();
-    await milvusClient.insert({
+    console.log("About to insert data into Milvus");
+
+    const insertResult = await milvusClient.insert({
       collection_name: COLLECTION_NAME,
       data: [
         {
-          id: module.id,
+          // pk_id is autoID, so we don't need to provide it
+          module_id: module.id,
+          block_id: block.attrs.id,
+          content: block.innerHTML,
           embedding: embedding,
-          url: module.url,
+          url: module.permalink,
         },
       ],
     });
 
     // Ensure data is persisted
-    await milvusClient.flush({
+    console.log("Flushing collection to persist data");
+    const flushResult = await milvusClient.flush({
       collection_names: [COLLECTION_NAME],
     });
 
+    // Get entity count right after insertion
+    const count = await checkEntityCount();
+    console.log(`Entity count after insertion: ${count}`);
+
     console.log(`Upserted curriculum module ID: ${module.id} into Milvus`);
+
+    // Process innerBlocks recursively if they exist
+    if (block.innerBlocks && block.innerBlocks.length > 0) {
+      for (const innerBlock of block.innerBlocks) {
+        await upsertCurriculumBlock(module, innerBlock);
+      }
+    }
   } catch (error) {
     console.error("Error upserting curriculum module:", error);
     throw error;
@@ -95,15 +131,18 @@ export const upsertCurriculumModule = async (
  */
 export const querySimilarModules = async (
   query: string,
-  topK: number = 3,
-  threshold: number = 0.8
+  topK: number = 3
 ): Promise<StoredCurriculumModule[]> => {
-  console.log("Querying similar modules");
+  const thresholdStr = ENV.THRESHOLD;
+  if (!thresholdStr) {
+    throw new Error("THRESHOLD environment variable is not defined");
+  }
+  const threshold = parseFloat(thresholdStr);
+  console.log("Querying similar modules with threshold:", threshold);
   await handleCollectionCreation(); // Ensure collection is ready
 
   // Embed the incoming query
   const queryEmbeddingResult = await embedText(query);
-  console.log("Query embedding result", queryEmbeddingResult);
 
   const queryEmbedding = convertToNumberArray(queryEmbeddingResult);
   console.log("Query embedding success");
@@ -119,7 +158,7 @@ export const querySimilarModules = async (
       index_type: "IVF_FLAT",
       metric_type: "COSINE",
     },
-    output_fields: ["id"],
+    output_fields: ["module_id", "block_id", "content", "url"],
   });
 
   console.log("Search results", searchResults);
@@ -136,22 +175,57 @@ export const querySimilarModules = async (
     return [];
   }
 
+  // Process results to get unique module IDs
+  const moduleIdSet = new Set<number>();
+  filteredResults.forEach((result) => {
+    const moduleId = result.module_id;
+    moduleIdSet.add(moduleId);
+  });
+
   // Fetch the matching modules from the DB
   const modules = await Promise.all(
-    filteredResults.map(async (result) => {
-      const moduleId = result.id;
-      const module = await dbService.getCurriculumModuleById(moduleId);
-      if (!module) {
-        throw new Error(`Module with ID ${moduleId} not found in database`);
+    Array.from(moduleIdSet).map(async (moduleId) => {
+      try {
+        const module = await getCurriculumModuleById(String(moduleId));
+        if (!module) {
+          console.warn(
+            `Module with ID ${moduleId} not found in database, skipping`
+          );
+          return null;
+        }
+
+        // Get all blocks from this module that matched
+        const matchingBlocks = filteredResults
+          .filter((result) => result.module_id === moduleId)
+          .map((result) => ({
+            blockId: result.block_id as string,
+            content: result.content,
+            score: result.score,
+          }));
+
+        // Return in StoredCurriculumModule format
+        return {
+          id: module.id,
+          embedding: [], // Not needed for return
+          url: module.permalink,
+          metadata: {
+            blocks: module.blocks,
+            matchingBlocks: matchingBlocks,
+          },
+        };
+      } catch (error) {
+        console.error(`Error fetching module with ID ${moduleId}:`, error);
+        return null;
       }
-      return {
-        ...module,
-        embedding: result.embedding as number[],
-      };
     })
   );
 
-  return modules;
+  // Filter out any null modules (those that couldn't be found)
+  console.log(
+    "Blocks:",
+    modules.map((module) => module?.metadata.matchingBlocks)
+  );
+  return modules.filter((module) => module !== null);
 };
 
 export const initMilvusCollection = async () => {
@@ -165,26 +239,43 @@ export const initMilvusCollection = async () => {
     if (!hasCollection) {
       await milvusClient.createCollection({
         collection_name: COLLECTION_NAME,
-        dimension: 384, // Adjust if your actual embedding dimension is different
         fields: [
           {
-            name: "id",
-            description: "ID field",
+            name: "pk_id",
+            description: "Primary Key",
             data_type: DataType.Int64,
             is_primary_key: true,
+            autoID: true,
+          },
+          {
+            name: "module_id",
+            description: "Module ID field",
+            data_type: DataType.Int64,
             autoID: false,
+          },
+          {
+            name: "block_id",
+            description: "Block ID field",
+            data_type: DataType.VarChar,
+            max_length: 64,
+          },
+          {
+            name: "content",
+            description: "Block content field",
+            data_type: DataType.VarChar,
+            max_length: 65535,
           },
           {
             name: "embedding",
             description: "Vector field",
             data_type: DataType.FloatVector,
-            dim: 384, // Adjust if your actual embedding dimension is different
+            dim: 1024, // Adjust if your actual embedding dimension is different
           },
           {
             name: "url",
             description: "URL field",
             data_type: DataType.VarChar,
-            max_length: 65535,
+            max_length: 512,
           },
         ],
       });
@@ -221,15 +312,30 @@ const handleCollectionCreation = async () => {
         collection_name: COLLECTION_NAME,
         fields: [
           {
-            name: "id",
+            name: "pk_id",
             data_type: DataType.Int64,
             is_primary_key: true,
+            autoID: true,
+          },
+          {
+            name: "module_id",
+            data_type: DataType.Int64,
             autoID: false,
+          },
+          {
+            name: "block_id",
+            data_type: DataType.VarChar,
+            max_length: 64,
+          },
+          {
+            name: "content",
+            data_type: DataType.VarChar,
+            max_length: 65535,
           },
           {
             name: "embedding",
             data_type: DataType.FloatVector,
-            dim: 1024, // Use 1024 if your actual embeddings are size 1024
+            dim: 1024, // Use embedding dimension that matches your model
           },
           {
             name: "url",
@@ -252,8 +358,12 @@ const handleCollectionCreation = async () => {
         params: { nlist: 1024 },
       });
       console.log("Created index on collection");
-    } catch (indexError) {
-      console.log("Index might already exist:", indexError.message);
+    } catch (indexError: unknown) {
+      if (indexError instanceof Error) {
+        console.log("Index might already exist:", indexError.message);
+      } else {
+        console.log("Index might already exist, unknown error format");
+      }
     }
 
     // Load the collection into memory
@@ -267,24 +377,61 @@ const handleCollectionCreation = async () => {
   }
 };
 
+// Function to directly check entity count
+const checkEntityCount = async (): Promise<number> => {
+  try {
+    // Ensure all inserted data is flushed
+    await milvusClient.flush({
+      collection_names: [COLLECTION_NAME],
+    });
+
+    // First check if collection exists
+    const exists = await milvusClient.hasCollection({
+      collection_name: COLLECTION_NAME,
+    });
+    console.log(`Collection ${COLLECTION_NAME} exists:`, exists);
+
+    if (!exists.value) {
+      return 0;
+    }
+
+    // Get statistics
+    const stats = await milvusClient.getCollectionStatistics({
+      collection_name: COLLECTION_NAME,
+    });
+
+    console.log("Raw statistics:", JSON.stringify(stats, null, 2));
+
+    const rowCount =
+      stats.stats.find((stat) => stat.key === "row_count")?.value || "0";
+    return parseInt(rowCount.toString());
+  } catch (error) {
+    console.error("Error checking entity count:", error);
+    return -1;
+  }
+};
+
 export const getEmbeddingCount = async (): Promise<number> => {
-  await handleCollectionCreation();
+  try {
+    console.log("Beginning getEmbeddingCount");
+    await handleCollectionCreation();
 
-  // Ensure all inserted data is flushed
-  await milvusClient.flush({
-    collection_names: [COLLECTION_NAME],
-  });
+    // List all collections to see if our collection exists
+    const collections = await milvusClient.listCollections();
+    console.log("Available collections:", JSON.stringify(collections, null, 2));
 
-  const stats = await milvusClient.getCollectionStatistics({
-    collection_name: COLLECTION_NAME,
-  });
-  console.log("Collection statistics:", stats);
+    // Check if collection exists
+    const exists = await milvusClient.hasCollection({
+      collection_name: COLLECTION_NAME,
+    });
+    console.log(`Collection ${COLLECTION_NAME} exists:`, exists);
 
-  const rowCount =
-    stats.stats.find((stat) => stat.key === "row_count")?.value || "0";
-  console.log("Row count found:", rowCount);
-
-  return parseInt(rowCount.toString());
+    // Get entity count directly
+    return await checkEntityCount();
+  } catch (error) {
+    console.error("Error getting embedding count:", error);
+    return 0;
+  }
 };
 
 export const dropCollection = async () => {

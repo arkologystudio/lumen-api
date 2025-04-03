@@ -13,6 +13,7 @@ app.use(
     origin: [
       "http://localhost:3000", // Dev
       "http://localhost:3333", // Dev
+      "http://culturehack.test", // Dev
       "https://www.culturehack.io", // Prod
     ],
     credentials: true,

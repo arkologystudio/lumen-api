@@ -1,13 +1,17 @@
 import express, { Router, RequestHandler } from "express";
-import { dbService } from "../services/database";
 
+import {
+  getCurriculumModulesWithBlocks,
+  getCurriculumModuleById,
+} from "../services/wp_client";
 const router: Router = express.Router();
 
 // Get all modules
 router.get("/", async (req, res) => {
   try {
     console.log("Attempting to fetch Modules ");
-    const modules = await dbService.getCurriculumModules();
+
+    const modules = await getCurriculumModulesWithBlocks();
     console.log("Modules fetched successfully");
     res.json(modules);
   } catch (error) {
@@ -19,10 +23,16 @@ router.get("/", async (req, res) => {
 // Get total number of modules
 router.get("/count/total", async (req, res) => {
   try {
-    const modules = await dbService.getCurriculumModules();
+    const modules = await getCurriculumModulesWithBlocks();
 
-    const count = modules.length;
-    res.json({ count });
+    const moduleCount = modules.length;
+    const blockCount = modules.reduce((acc, module) => {
+      return acc + module.blocks.length;
+    }, 0);
+    res.json({
+      Modules: moduleCount,
+      Blocks: blockCount,
+    });
   } catch (error) {
     console.error("Error counting modules", error);
     res.status(500).json({ message: "Error counting modules", error });
@@ -32,7 +42,8 @@ router.get("/count/total", async (req, res) => {
 // Get module by ID - moved this to be last
 router.get("/:id", async (req, res) => {
   try {
-    const module = await dbService.getCurriculumModuleById(req.params.id);
+    // const module = await dbService.getCurriculumModuleById(req.params.id);
+    const module = await getCurriculumModuleById(req.params.id);
     if (!module) {
       res.status(404).json({ message: "Module not found" });
       return;
