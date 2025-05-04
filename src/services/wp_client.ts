@@ -18,6 +18,7 @@ const transformModuleResponse = (post: WPPostResponse): CurriculumModule => ({
   id: post.id,
   permalink: post.permalink,
   blocks: post.blocks || [],
+  title: post.title,
 });
 
 // API functions
@@ -43,6 +44,8 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
         Accept: "application/json",
       },
     });
+
+    console.log("Response test: ", response);
 
     console.log("Response:", response.data[0].blocks[0]);
     return response.data.map(transformModuleResponse);
@@ -75,6 +78,8 @@ export const getCurriculumModuleById = async (
         },
       }
     );
+
+    console.log("Response test: ", response);
 
     return transformModuleResponse(response.data);
   } catch (error) {

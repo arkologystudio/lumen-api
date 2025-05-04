@@ -1,58 +1,18 @@
-import express, { Router, RequestHandler } from "express";
-
+import express, { Router } from "express";
 import {
-  getCurriculumModulesWithBlocks,
-  getCurriculumModuleById,
-} from "../services/wp_client";
+  getAllModules,
+  getModulesCount,
+  getModuleById,
+} from "../controllers/moduleController";
+import { apiKeyAuth } from "../middleware/auth";
+
 const router: Router = express.Router();
 
-// Get all modules
-router.get("/", async (req, res) => {
-  try {
-    console.log("Attempting to fetch Modules ");
+// ── ALL MODULE ROUTES REQUIRE API KEY ──────────────────────────────────────────
+router.use(apiKeyAuth);
 
-    const modules = await getCurriculumModulesWithBlocks();
-    console.log("Modules fetched successfully");
-    res.json(modules);
-  } catch (error) {
-    console.error("Error fetching modules", error);
-    res.status(500).json({ message: "Error fetching modules", error });
-  }
-});
-
-// Get total number of modules
-router.get("/count/total", async (req, res) => {
-  try {
-    const modules = await getCurriculumModulesWithBlocks();
-
-    const moduleCount = modules.length;
-    const blockCount = modules.reduce((acc, module) => {
-      return acc + module.blocks.length;
-    }, 0);
-    res.json({
-      Modules: moduleCount,
-      Blocks: blockCount,
-    });
-  } catch (error) {
-    console.error("Error counting modules", error);
-    res.status(500).json({ message: "Error counting modules", error });
-  }
-});
-
-// Get module by ID - moved this to be last
-router.get("/:id", async (req, res) => {
-  try {
-    // const module = await dbService.getCurriculumModuleById(req.params.id);
-    const module = await getCurriculumModuleById(req.params.id);
-    if (!module) {
-      res.status(404).json({ message: "Module not found" });
-      return;
-    }
-    res.json(module);
-  } catch (error) {
-    console.error("Error fetching module", error);
-    res.status(500).json({ message: "Error fetching module", error });
-  }
-});
+router.get("/", getAllModules);
+router.get("/count/total", getModulesCount);
+router.get("/:id", getModuleById);
 
 export default router;

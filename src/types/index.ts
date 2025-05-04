@@ -26,6 +26,7 @@ export interface CurriculumModule {
   id: number;
   permalink: string;
   blocks: GutenbergBlock[];
+  title: string;
 }
 
 // WordPress REST API response types
@@ -34,4 +35,5 @@ export interface WPPostResponse {
   permalink: string;
   content: string;
   blocks: GutenbergBlock[];
+  title: string;
 }

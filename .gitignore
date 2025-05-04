@@ -5,3 +5,7 @@ volumes
 .idea
 
 DS_Store
+
+# ignore build outputs and coverage
+/dist
+/coverage

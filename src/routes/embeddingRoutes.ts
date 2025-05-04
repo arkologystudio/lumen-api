@@ -6,20 +6,23 @@ import {
   getEmbeddingsCount,
   dropCollection,
 } from "../controllers/embeddingController";
+import { apiKeyAuth, authenticateJWT } from "../middleware/auth";
+import { searchRateLimiter } from "../middleware/rateLimit";
 
 const router = express.Router();
 
-// Endpoint to embed all curriculum content
-router.post("/embed-curriculum", embedCurriculumContent);
+// ── JWT‐PROTECTED (public client) ──────────────────────────────────────────────
+router.post(
+  "/search",
+  authenticateJWT,
+  searchRateLimiter,
+  searchCurriculumModules
+);
 
-// Endpoint to search curriculum modules
-router.post("/search", searchCurriculumModules);
-
-// Endpoint to get embeddings count
-router.get("/count", getEmbeddingsCount);
-
-router.post("/embed-test", embedTest);
-
-router.post("/drop-collection", dropCollection);
+// ── API‐KEY‐PROTECTED (server‐to‐server) ────────────────────────────────────────
+router.post("/embed-curriculum", apiKeyAuth, embedCurriculumContent);
+router.post("/embed-test", apiKeyAuth, embedTest);
+router.post("/drop-collection", apiKeyAuth, dropCollection);
+router.get("/count", apiKeyAuth, getEmbeddingsCount);
 
 export default router;

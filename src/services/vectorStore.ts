@@ -8,6 +8,7 @@ import { getCurriculumModuleById } from "./wp_client";
 
 interface StoredCurriculumModule {
   id: number;
+  title: string;
   embedding: number[];
   url: string;
   metadata: {
@@ -100,11 +101,15 @@ export const upsertCurriculumBlock = async (
       ],
     });
 
+    console.log("Insert result:", insertResult);
+
     // Ensure data is persisted
     console.log("Flushing collection to persist data");
     const flushResult = await milvusClient.flush({
       collection_names: [COLLECTION_NAME],
     });
+
+    console.log("Flush result:", flushResult);
 
     // Get entity count right after insertion
     const count = await checkEntityCount();
@@ -204,8 +209,9 @@ export const querySimilarModules = async (
           }));
 
         // Return in StoredCurriculumModule format
-        return {
+        const storedModule: StoredCurriculumModule = {
           id: module.id,
+          title: module.title,
           embedding: [], // Not needed for return
           url: module.permalink,
           metadata: {
@@ -213,6 +219,10 @@ export const querySimilarModules = async (
             matchingBlocks: matchingBlocks,
           },
         };
+
+        console.log("Stored module: ", storedModule);
+
+        return storedModule;
       } catch (error) {
         console.error(`Error fetching module with ID ${moduleId}:`, error);
         return null;
