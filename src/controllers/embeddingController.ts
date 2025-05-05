@@ -70,7 +70,15 @@ export const searchCurriculumModules: RequestHandler = async (req, res) => {
 
     // More specific error messages based on error type
     if (error instanceof Error) {
-      if (error.message.includes("THRESHOLD")) {
+      // Handle the specific "Not Found" error from embedding service
+      if (error.message.includes("Not Found")) {
+        res.status(404).json({
+          success: false,
+          message:
+            "Curriculum content has not been embedded yet. Please embed the curriculum first.",
+          error: "CURRICULUM_NOT_EMBEDDED",
+        });
+      } else if (error.message.includes("THRESHOLD")) {
         res.status(500).json({
           success: false,
           message:
