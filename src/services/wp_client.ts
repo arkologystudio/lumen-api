@@ -42,9 +42,10 @@ const getBaseUrl = (): string => {
 
 // Authentication helper
 const getAuthHeaders = (): Record<string, string> => {
-  const username = ENV.WP_USER_USERNAME;
+  const username = ENV.WP_USER_NAME;
   const password = ENV.WP_USER_PASSWORD;
-
+  console.log("username: ", username);
+  console.log("password: ", password);
   if (!username || !password) {
     console.warn("WordPress authentication credentials not provided");
     return {};
