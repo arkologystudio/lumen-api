@@ -42,16 +42,18 @@ const getBaseUrl = (): string => {
 
 // Authentication helper
 const getAuthHeaders = (): Record<string, string> => {
-  const username = ENV.WP_USER_NAME;
-  const password = ENV.WP_USER_PASSWORD;
-  console.log("username: ", username);
-  console.log("password: ", password);
-  if (!username || !password) {
+  const applicationPassName = ENV.WP_APPLICATION_PASS_NAME;
+  const applicationPassPassword = ENV.WP_APPLICATION_PASS_PASSWORD;
+  console.log("applicationPassName: ", applicationPassName);
+  console.log("applicationPassPassword: ", applicationPassPassword);
+  if (!applicationPassName || !applicationPassPassword) {
     console.warn("WordPress authentication credentials not provided");
     return {};
   }
 
-  const token = Buffer.from(`${username}:${password}`).toString("base64");
+  const token = Buffer.from(
+    `${applicationPassName}:${applicationPassPassword}`
+  ).toString("base64");
   return {
     Authorization: `Basic ${token}`,
   };
