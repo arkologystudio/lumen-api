@@ -71,7 +71,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV}
       - MILVUS_ADDRESS=standalone:19530
       - WP_API_URL=${WP_API_URL}
       - WP_USE_CUSTOM_ENDPOINT=${WP_USE_CUSTOM_ENDPOINT}
