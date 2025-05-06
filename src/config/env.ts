@@ -2,7 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 export const ENV = {
-  ENVIRONMENT: process.env.ENVIRONMENT,
+  NODE_ENV: process.env.NODE_ENV,
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL,
   INFERENCE_PROVIDER: process.env.INFERENCE_PROVIDER,
   HUGGING_FACE_API_TOKEN: process.env.HUGGING_FACE_API_TOKEN,

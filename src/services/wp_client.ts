@@ -7,7 +7,12 @@ import { CurriculumModule, WPPostResponse } from "../types";
 const getBaseUrl = (): string => {
   let baseUrl;
 
-  switch (ENV.ENVIRONMENT) {
+  console.log("ENVIRONMENT: ", ENV.NODE_ENV);
+  console.log("CORS_ORIGIN_STAGING: ", ENV.CORS_ORIGIN_STAGING);
+  console.log("CORS_ORIGIN_PROD: ", ENV.CORS_ORIGIN_PROD);
+  console.log("CORS_ORIGIN_DEV: ", ENV.CORS_ORIGIN_DEV);
+
+  switch (ENV.NODE_ENV) {
     case "staging":
       baseUrl = ENV.CORS_ORIGIN_STAGING;
       break;
