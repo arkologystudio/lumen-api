@@ -40,17 +40,33 @@
 
 import axios from "axios";
 import { ENV } from "../config/env";
+
+/**
+ * Embeds text using Hugging Face's inference API
+ * @param userQuery - Text to embed
+ * @returns Array of embedding values
+ */
 export const embedText = async (userQuery: string): Promise<number[]> => {
   try {
-    if (!ENV.HUGGING_FACE_API_TOKEN || !ENV.EMBEDDING_MODEL) {
-      throw new Error(
-        "HUGGING_FACE_API_TOKEN or EMBEDDING_MODEL is not defined"
-      );
+    // Validate required environment variables
+    if (!ENV.HUGGING_FACE_API_TOKEN) {
+      console.error("Missing HUGGING_FACE_API_TOKEN in environment variables");
+      throw new Error("HUGGING_FACE_API_TOKEN is not defined");
     }
-    const model = encodeURIComponent(ENV.EMBEDDING_MODEL); // safe for slashes
+
+    if (!ENV.EMBEDDING_MODEL) {
+      console.error("Missing EMBEDDING_MODEL in environment variables");
+      throw new Error("EMBEDDING_MODEL is not defined");
+    }
+
+    console.log(`Embedding text with model: ${ENV.EMBEDDING_MODEL}`);
+
+    // Prepare API call
+    const model = encodeURIComponent(ENV.EMBEDDING_MODEL);
     const url = `https://api-inference.huggingface.co/models/${model}`;
 
-    const { data } = await axios.post<number[][]>(
+    // Make the API request with timeout
+    const response = await axios.post<number[][]>(
       url,
       { inputs: userQuery },
       {
@@ -58,13 +74,46 @@ export const embedText = async (userQuery: string): Promise<number[]> => {
           Authorization: `Bearer ${ENV.HUGGING_FACE_API_TOKEN}`,
           "Content-Type": "application/json",
         },
+        timeout: 30000, // 30 second timeout
       }
     );
 
-    // data is [[…]] so return the first row
-    return Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+    // Process and validate the response
+    const { data } = response;
+
+    if (!Array.isArray(data)) {
+      console.error("Invalid response format from Hugging Face API:", data);
+      throw new Error("Invalid response format: expected array");
+    }
+
+    if (data.length === 0) {
+      console.error("Empty response array from Hugging Face API");
+      throw new Error("Empty embedding array received");
+    }
+
+    if (!Array.isArray(data[0])) {
+      console.error("Invalid embedding format:", data);
+      throw new Error("Invalid embedding format: expected nested array");
+    }
+
+    if (data[0].length === 0) {
+      console.error("Empty embedding vector received");
+      throw new Error("Empty embedding vector");
+    }
+
+    console.log(`Embedding successful: vector dimension = ${data[0].length}`);
+    return data[0];
   } catch (error) {
-    console.error("Error embedding text:", error);
+    if (axios.isAxiosError(error)) {
+      console.error("Axios error embedding text:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+      });
+    } else {
+      console.error("Error embedding text:", error);
+    }
     throw error;
   }
 };

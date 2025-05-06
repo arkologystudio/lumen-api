@@ -80,43 +80,88 @@ export const upsertCurriculumBlock = async (
       block.attrs.id
     );
 
-    const embeddingResult = await embedText(block.innerHTML);
-    console.log("Embedding result:", embeddingResult);
-    const embedding = convertToNumberArray(embeddingResult);
-    console.log("Embedding dimension:", embedding.length);
+    // Get embedding for the block
+    let embedding: number[];
+    try {
+      const embeddingResult = await embedText(block.innerHTML);
+      console.log("Embedding dimension:", embeddingResult.length);
 
-    await handleCollectionCreation();
-    console.log("About to insert data into Milvus");
+      if (!embeddingResult.length) {
+        console.error(
+          "Error: Received empty embedding vector - skipping block"
+        );
+        return;
+      }
 
-    const insertResult = await milvusClient.insert({
-      collection_name: COLLECTION_NAME,
-      data: [
-        {
-          // pk_id is autoID, so we don't need to provide it
-          module_id: module.id,
-          block_id: block.attrs.id,
-          content: block.innerHTML,
-          embedding: embedding,
-          url: module.permalink,
-        },
-      ],
-    });
+      embedding = embeddingResult;
+    } catch (error) {
+      console.error(`Failed to embed block ${block.attrs.id}:`, error);
+      return; // Skip this block rather than failing the whole process
+    }
 
-    console.log("Insert result:", insertResult);
+    try {
+      await handleCollectionCreation();
+      console.log("About to insert data into Milvus");
 
-    // Ensure data is persisted
-    console.log("Flushing collection to persist data");
-    const flushResult = await milvusClient.flush({
-      collection_names: [COLLECTION_NAME],
-    });
+      const insertResult = await milvusClient.insert({
+        collection_name: COLLECTION_NAME,
+        data: [
+          {
+            // pk_id is autoID, so we don't need to provide it
+            module_id: module.id,
+            block_id: block.attrs.id,
+            content: block.innerHTML,
+            embedding: embedding,
+            url: module.permalink,
+          },
+        ],
+      });
 
-    console.log("Flush result:", flushResult);
+      console.log("Insert result:", insertResult);
 
-    // Get entity count right after insertion
-    const count = await checkEntityCount();
-    console.log(`Entity count after insertion: ${count}`);
+      if (insertResult.err_index && insertResult.err_index.length > 0) {
+        console.error(
+          "Insert errors:",
+          insertResult.status?.reason || "Unknown error"
+        );
+        throw new Error(
+          `Failed to insert data: ${
+            insertResult.status?.reason || "Unknown error"
+          }`
+        );
+      }
 
-    console.log(`Upserted curriculum module ID: ${module.id} into Milvus`);
+      // Ensure data is persisted
+      console.log("Flushing collection to persist data");
+      try {
+        const flushResult = await milvusClient.flush({
+          collection_names: [COLLECTION_NAME],
+        });
+        console.log("Flush result:", flushResult);
+
+        if (
+          flushResult.status?.code !== 0 &&
+          flushResult.status?.code !== undefined
+        ) {
+          console.warn(
+            "Flush warning:",
+            flushResult.status?.reason || "Unknown warning"
+          );
+        }
+      } catch (flushError) {
+        console.warn("Flush operation failed, continuing anyway:", flushError);
+        // Don't throw here, as the data is likely still inserted
+      }
+
+      // Get entity count right after insertion
+      const count = await checkEntityCount();
+      console.log(`Entity count after insertion: ${count}`);
+
+      console.log(`Upserted curriculum module ID: ${module.id} into Milvus`);
+    } catch (dbError) {
+      console.error("Database operation failed:", dbError);
+      throw dbError;
+    }
 
     // Process innerBlocks recursively if they exist
     if (block.innerBlocks && block.innerBlocks.length > 0) {
