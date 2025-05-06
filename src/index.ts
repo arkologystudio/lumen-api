@@ -16,7 +16,12 @@ app.use(morgan("combined"));
 app.use(express.json());
 app.use(
   cors({
-    origin: [ENV.CORS_ORIGIN_DEV, ENV.CORS_ORIGIN_TEST, ENV.CORS_ORIGIN_PROD],
+    origin: [
+      ENV.CORS_ORIGIN_DEV,
+      ENV.CORS_ORIGIN_TEST,
+      ENV.CORS_ORIGIN_PROD,
+      ENV.CORS_ORIGIN_STAGING,
+    ],
     methods: ["GET", "POST"],
   })
 );

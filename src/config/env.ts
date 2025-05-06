@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 export const ENV = {
+  ENVIRONMENT: process.env.ENVIRONMENT,
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL,
   INFERENCE_PROVIDER: process.env.INFERENCE_PROVIDER,
   HUGGING_FACE_API_TOKEN: process.env.HUGGING_FACE_API_TOKEN,
@@ -21,5 +22,6 @@ export const ENV = {
   CORS_ORIGIN_DEV: process.env.CORS_ORIGIN_DEV!,
   CORS_ORIGIN_TEST: process.env.CORS_ORIGIN_TEST!,
   CORS_ORIGIN_PROD: process.env.CORS_ORIGIN_PROD!,
+  CORS_ORIGIN_STAGING: process.env.CORS_ORIGIN_STAGING!,
   SERVER_API_KEY: process.env.SERVER_API_KEY!,
 };

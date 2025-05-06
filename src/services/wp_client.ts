@@ -5,12 +5,34 @@ import { CurriculumModule, WPPostResponse } from "../types";
 
 // API configuration
 const getBaseUrl = (): string => {
-  const baseUrl = ENV.WP_API_URL;
+  let baseUrl;
+
+  switch (ENV.ENVIRONMENT) {
+    case "staging":
+      baseUrl = ENV.CORS_ORIGIN_STAGING;
+      break;
+    case "production":
+      baseUrl = ENV.CORS_ORIGIN_PROD;
+      break;
+    case "development":
+      baseUrl = ENV.CORS_ORIGIN_DEV;
+      break;
+  }
+
   if (!baseUrl) {
+    throw new Error(
+      "ENVIRONMENT and ORIGIN variables are not defined. Please check your .env file."
+    );
+  }
+
+  const endpoint = ENV.WP_API_URL;
+  if (!endpoint) {
     throw new Error("WP_API_URL environment variable is not defined");
   }
+  const fullEndpoint = `${baseUrl}${endpoint}`;
+
   // Ensure the URL doesn't end with a slash to prevent double slashes
-  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+  return fullEndpoint.endsWith("/") ? fullEndpoint.slice(0, -1) : fullEndpoint;
 };
 
 // Pure transformer functions
@@ -54,7 +76,9 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
     if (axios.isAxiosError(error)) {
       if (error.code === "ECONNREFUSED") {
         throw new Error(
-          `Cannot connect to WordPress at ${ENV.WP_API_URL}. Please check if the URL is correct and the WordPress server is running.`
+          `Cannot connect to WordPress at ${getBaseUrl()} ${
+            ENV.WP_API_URL
+          }. Please check if the URL is correct and the WordPress server is running.`
         );
       }
       console.error("API Response:", error.response?.data);
