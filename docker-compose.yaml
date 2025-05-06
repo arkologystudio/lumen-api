@@ -70,6 +70,8 @@ services:
       - ./tsconfig.json:/app/tsconfig.json
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=${NODE_ENV}
       - MILVUS_ADDRESS=standalone:19530
