@@ -81,6 +81,7 @@ export const upsertCurriculumBlock = async (
     );
 
     const embeddingResult = await embedText(block.innerHTML);
+    console.log("Embedding result:", embeddingResult);
     const embedding = convertToNumberArray(embeddingResult);
     console.log("Embedding dimension:", embedding.length);
 
