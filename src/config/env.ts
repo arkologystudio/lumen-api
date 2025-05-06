@@ -12,6 +12,8 @@ export const ENV = {
   MILVUS_PASSWORD: process.env.MILVUS_PASSWORD,
   WP_API_URL: process.env.WP_API_URL,
   WP_USE_CUSTOM_ENDPOINT: process.env.WP_USE_CUSTOM_ENDPOINT,
+  WP_USER_USERNAME: process.env.WP_USER_USERNAME,
+  WP_USER_PASSWORD: process.env.WP_USER_PASSWORD,
   THRESHOLD: process.env.THRESHOLD,
   JWT_SECRET: process.env.JWT_SECRET!,
   JWT_TTL: process.env.JWT_TTL!,

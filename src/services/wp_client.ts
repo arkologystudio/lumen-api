@@ -40,6 +40,22 @@ const getBaseUrl = (): string => {
   return fullEndpoint.endsWith("/") ? fullEndpoint.slice(0, -1) : fullEndpoint;
 };
 
+// Authentication helper
+const getAuthHeaders = (): Record<string, string> => {
+  const username = ENV.WP_USER_USERNAME;
+  const password = ENV.WP_USER_PASSWORD;
+
+  if (!username || !password) {
+    console.warn("WordPress authentication credentials not provided");
+    return {};
+  }
+
+  const token = Buffer.from(`${username}:${password}`).toString("base64");
+  return {
+    Authorization: `Basic ${token}`,
+  };
+};
+
 // Pure transformer functions
 const transformModuleResponse = (post: WPPostResponse): CurriculumModule => ({
   id: post.id,
@@ -69,6 +85,7 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
       },
       headers: {
         Accept: "application/json",
+        ...getAuthHeaders(),
       },
     });
 
@@ -104,6 +121,10 @@ export const getCurriculumModuleById = async (
         params: {
           _embed: "true",
           context: "edit", // Required to get block data
+        },
+        headers: {
+          Accept: "application/json",
+          ...getAuthHeaders(),
         },
       }
     );
