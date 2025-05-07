@@ -66,7 +66,7 @@ export const embedText = async (userQuery: string): Promise<number[]> => {
     const url = `https://api-inference.huggingface.co/models/${model}`;
 
     // Make the API request with timeout
-    const response = await axios.post<number[][]>(
+    const response = await axios.post<number[] | number[][]>(
       url,
       { inputs: userQuery },
       {
@@ -91,18 +91,24 @@ export const embedText = async (userQuery: string): Promise<number[]> => {
       throw new Error("Empty embedding array received");
     }
 
-    if (!Array.isArray(data[0])) {
-      console.error("Invalid embedding format:", data);
-      throw new Error("Invalid embedding format: expected nested array");
-    }
+    // Handle both flat and nested array formats
+    const embeddingVector = Array.isArray(data[0]) ? data[0] : data;
 
-    if (data[0].length === 0) {
+    if (embeddingVector.length === 0) {
       console.error("Empty embedding vector received");
       throw new Error("Empty embedding vector");
     }
 
-    console.log(`Embedding successful: vector dimension = ${data[0].length}`);
-    return data[0];
+    // Validate that all elements are numbers
+    if (!embeddingVector.every((item) => typeof item === "number")) {
+      console.error("Invalid embedding format: non-numeric values found");
+      throw new Error("Invalid embedding format: expected numeric values");
+    }
+
+    console.log(
+      `Embedding successful: vector dimension = ${embeddingVector.length}`
+    );
+    return embeddingVector;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("Axios error embedding text:", {
