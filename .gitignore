@@ -12,5 +12,3 @@ DS_Store
 
 .DS_Store
 
-# ignore nginx config
-nginx.conf
