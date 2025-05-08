@@ -10,6 +10,9 @@ import { ENV } from "./config/env";
 export const app = express();
 const port = process.env.PORT || 3000;
 
+// trust proxy
+app.set("trust proxy", 1);
+
 // global middleware
 app.use(helmet());
 app.use(morgan("combined"));
@@ -25,6 +28,10 @@ app.use(
     methods: ["GET", "POST"],
   })
 );
+
+app.get("/", (req, res) => {
+  res.send("CHL Service is up and running!");
+});
 
 // public: get short-lived JWT
 app.use("/api/auth", authRoutes);
