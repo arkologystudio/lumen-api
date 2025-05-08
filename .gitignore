@@ -9,3 +9,8 @@ DS_Store
 # ignore build outputs and coverage
 /dist
 /coverage
+
+.DS_Store
+
+# ignore nginx config
+nginx.conf
