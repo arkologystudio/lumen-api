@@ -40,40 +40,6 @@ const getBaseUrl = (): string => {
   return fullEndpoint.endsWith("/") ? fullEndpoint.slice(0, -1) : fullEndpoint;
 };
 
-// Validation helper function
-const validateResponseData = (data: unknown): void => {
-  console.log("=== WordPress API Response Validation ===");
-  console.log("Response type:", typeof data);
-  console.log("Is array:", Array.isArray(data));
-
-  if (Array.isArray(data)) {
-    console.log("Array length:", data.length);
-    if (data.length > 0) {
-      const firstItem = data[0];
-      console.log("First item type:", typeof firstItem);
-      console.log(
-        "First item keys:",
-        firstItem ? Object.keys(firstItem) : "N/A"
-      );
-
-      if (firstItem && typeof firstItem === "object") {
-        const item = firstItem as Record<string, unknown>;
-        console.log("First item id:", item.id);
-        console.log("First item title:", item.title);
-        console.log("First item permalink:", item.permalink);
-        console.log("First item blocks type:", typeof item.blocks);
-        console.log("First item blocks is array:", Array.isArray(item.blocks));
-        if (Array.isArray(item.blocks)) {
-          console.log("First item blocks length:", item.blocks.length);
-        }
-      }
-    }
-  } else {
-    console.log("Response data:", JSON.stringify(data, null, 2));
-  }
-  console.log("=== End Response Validation ===");
-};
-
 // Authentication helper
 const getAuthHeaders = (): Record<string, string> => {
   const applicationPassName = ENV.WP_APPLICATION_PASS_NAME;
@@ -138,9 +104,6 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
 
     console.log("Response status:", response.status);
     console.log("Response headers:", response.headers);
-
-    // Validate and log the response structure
-    validateResponseData(response.data);
 
     // Safely check if response data exists and has content
     if (!response.data || !Array.isArray(response.data)) {
