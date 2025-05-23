@@ -9,7 +9,6 @@ The service consists of several key components:
 
 - **Express.js Application**: A Node.js backend service built with TypeScript
 - **Milvus**: Vector database for storing and searching embedded curriculum content
-- **MariaDB**: Relational database for storing metadata and relationships
 - **MinIO**: Object storage for managing large files and binary data
 - **etcd**: Key-value store used by Milvus for metadata management
 
@@ -33,13 +32,10 @@ DOCKER_VOLUME_DIRECTORY=./
 
 ## Installation & Setup
 
-1. Clone the repository:
-```bash
-git clone [repository-url]
-cd curriculum-embedding-service
-```
+### Local Development
 
-2. Start the services:
+For local development, start the core services without nginx:
+
 ```bash
 docker-compose up -d
 ```
@@ -49,6 +45,24 @@ This will start:
 - MariaDB (port 3306)
 - MinIO (port 9000)
 - Express application (port 3000)
+
+### Production Deployment
+
+For production deployment with nginx proxy, use the overlay configuration:
+
+```bash
+docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+```
+
+This additionally includes:
+- **nginx**: Reverse proxy server (port 80)
+
+### Docker Compose Files
+
+- `docker-compose.yaml`: Base configuration for all environments
+- `docker-compose.prod.yaml`: Production overlay that adds nginx service
+
+This separation ensures that nginx (which is only needed for production) doesn't interfere with local development and avoids port conflicts.
 
 ## Development
 
@@ -66,6 +80,7 @@ The application is set up with hot-reloading for development:
 - **mariadb**: Relational database for structured data
 - **minio**: Object storage service
 - **etcd**: Key-value store for Milvus metadata
+- **nginx** (production only): Reverse proxy and load balancer
 
 ### Networking
 
@@ -75,7 +90,7 @@ All services are connected through the `milvus-net` Docker network, enabling sea
 
 Data is persisted through Docker volumes:
 - `/volumes/milvus`: Milvus data
-- `/volumes/mariadb`: MariaDB data
+
 - `/volumes/minio`: MinIO data
 - `/volumes/etcd`: etcd data
 

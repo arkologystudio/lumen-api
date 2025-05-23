@@ -72,10 +72,7 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
   CurriculumModule[]
 > => {
   try {
-    const endpoint =
-      ENV.WP_USE_CUSTOM_ENDPOINT === "true"
-        ? "curriculum-blocks"
-        : "posts?type=curriculum-blocks";
+    const endpoint = "curriculum-blocks";
 
     const url = `${getBaseUrl()}/${endpoint}`;
     console.log("Fetching from URL:", url);

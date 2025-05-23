@@ -3,7 +3,7 @@ import cors from "cors";
 import { initMilvusCollection } from "./services/vectorStore";
 import embeddingRoutes from "./routes/embeddingRoutes";
 import authRoutes from "./routes/auth";
-import moduleRoute from "./routes/moduleRoute";
+import moduleRoute from "./routes/moduleRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
@@ -21,7 +21,6 @@ app.use(
   cors({
     origin: [
       ENV.CORS_ORIGIN_DEV,
-      ENV.CORS_ORIGIN_TEST,
       ENV.CORS_ORIGIN_PROD,
       ENV.CORS_ORIGIN_STAGING,
     ],
