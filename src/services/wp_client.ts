@@ -90,7 +90,9 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
     const url = `${getBaseUrl()}/${endpoint}`;
     console.log("Fetching from URL:", url);
 
-    const response = await axios.get<WPPostResponse[]>(url, {
+    const response = await axios.get<
+      WPPostResponse[] | Record<string, WPPostResponse>
+    >(url, {
       params: {
         per_page: 100,
         _embed: "true",
@@ -105,30 +107,48 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
     console.log("Response status:", response.status);
     console.log("Response headers:", response.headers);
 
-    // Safely check if response data exists and has content
-    if (!response.data || !Array.isArray(response.data)) {
-      console.warn("No valid response data received from WordPress API");
-      console.warn("Response data:", response.data);
-      console.warn("Response data type:", typeof response.data);
-      console.warn("Response data keys:", Object.keys(response.data));
+    // Handle both array and object responses from WordPress
+    let modules: WPPostResponse[] = [];
 
+    if (!response.data) {
+      console.warn("No response data received from WordPress API");
       return [];
     }
 
-    if (response.data.length === 0) {
+    console.log("Response data type:", typeof response.data);
+    console.log("Is array:", Array.isArray(response.data));
+
+    if (Array.isArray(response.data)) {
+      // Standard array response
+      modules = response.data;
+      console.log("Received array response with", modules.length, "items");
+    } else if (typeof response.data === "object" && response.data !== null) {
+      // Object with numeric string keys (WordPress sometimes returns this format)
+      console.log("Converting object response to array format");
+      console.log("Object keys:", Object.keys(response.data));
+      modules = Object.values(response.data);
+      console.log("Converted to array with", modules.length, "items");
+    } else {
+      console.warn("Unexpected response format from WordPress API");
+      return [];
+    }
+
+    if (modules.length === 0) {
       console.warn("No curriculum modules found in WordPress API response");
       return [];
     }
 
+    console.log(`Found ${modules.length} curriculum modules`);
+
     // Safely log the first item if it exists
-    const firstModule = response.data[0];
+    const firstModule = modules[0];
     if (firstModule && firstModule.blocks && firstModule.blocks.length > 0) {
       console.log("First module first block:", firstModule.blocks[0]);
     } else {
       console.log("First module has no blocks or blocks is undefined");
     }
 
-    return response.data.map(transformModuleResponse);
+    return modules.map(transformModuleResponse);
   } catch (error) {
     console.error("WordPress API error:", error);
     if (axios.isAxiosError(error)) {
