@@ -40,6 +40,40 @@ const getBaseUrl = (): string => {
   return fullEndpoint.endsWith("/") ? fullEndpoint.slice(0, -1) : fullEndpoint;
 };
 
+// Validation helper function
+const validateResponseData = (data: unknown): void => {
+  console.log("=== WordPress API Response Validation ===");
+  console.log("Response type:", typeof data);
+  console.log("Is array:", Array.isArray(data));
+
+  if (Array.isArray(data)) {
+    console.log("Array length:", data.length);
+    if (data.length > 0) {
+      const firstItem = data[0];
+      console.log("First item type:", typeof firstItem);
+      console.log(
+        "First item keys:",
+        firstItem ? Object.keys(firstItem) : "N/A"
+      );
+
+      if (firstItem && typeof firstItem === "object") {
+        const item = firstItem as Record<string, unknown>;
+        console.log("First item id:", item.id);
+        console.log("First item title:", item.title);
+        console.log("First item permalink:", item.permalink);
+        console.log("First item blocks type:", typeof item.blocks);
+        console.log("First item blocks is array:", Array.isArray(item.blocks));
+        if (Array.isArray(item.blocks)) {
+          console.log("First item blocks length:", item.blocks.length);
+        }
+      }
+    }
+  } else {
+    console.log("Response data:", JSON.stringify(data, null, 2));
+  }
+  console.log("=== End Response Validation ===");
+};
+
 // Authentication helper
 const getAuthHeaders = (): Record<string, string> => {
   const applicationPassName = ENV.WP_APPLICATION_PASS_NAME;
@@ -60,12 +94,25 @@ const getAuthHeaders = (): Record<string, string> => {
 };
 
 // Pure transformer functions
-const transformModuleResponse = (post: WPPostResponse): CurriculumModule => ({
-  id: post.id,
-  permalink: post.permalink,
-  blocks: post.blocks || [],
-  title: post.title,
-});
+const transformModuleResponse = (post: WPPostResponse): CurriculumModule => {
+  // Safely handle missing properties
+  if (!post) {
+    console.warn("Received null/undefined post in transformModuleResponse");
+    throw new Error("Invalid post data: post is null or undefined");
+  }
+
+  if (!post.id) {
+    console.warn("Post missing required id property:", post);
+    throw new Error("Invalid post data: missing id");
+  }
+
+  return {
+    id: post.id,
+    permalink: post.permalink || "",
+    blocks: post.blocks || [],
+    title: post.title || "",
+  };
+};
 
 // API functions
 export const getCurriculumModulesWithBlocks = async (): Promise<
@@ -89,9 +136,31 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
       },
     });
 
-    console.log("Response test: ", response);
+    console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers);
 
-    console.log("Response:", response.data[0].blocks[0]);
+    // Validate and log the response structure
+    validateResponseData(response.data);
+
+    // Safely check if response data exists and has content
+    if (!response.data || !Array.isArray(response.data)) {
+      console.warn("No valid response data received from WordPress API");
+      return [];
+    }
+
+    if (response.data.length === 0) {
+      console.warn("No curriculum modules found in WordPress API response");
+      return [];
+    }
+
+    // Safely log the first item if it exists
+    const firstModule = response.data[0];
+    if (firstModule && firstModule.blocks && firstModule.blocks.length > 0) {
+      console.log("First module first block:", firstModule.blocks[0]);
+    } else {
+      console.log("First module has no blocks or blocks is undefined");
+    }
+
     return response.data.map(transformModuleResponse);
   } catch (error) {
     console.error("WordPress API error:", error);
@@ -103,7 +172,9 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
           }. Please check if the URL is correct and the WordPress server is running.`
         );
       }
-      console.error("API Response:", error.response?.data);
+      console.error("API Response Status:", error.response?.status);
+      console.error("API Response Headers:", error.response?.headers);
+      console.error("API Response Data:", error.response?.data);
     }
     throw new Error("Failed to fetch curriculum modules");
   }
@@ -130,6 +201,12 @@ export const getCurriculumModuleById = async (
     );
 
     console.log("Response test: ", response);
+
+    // Safely check if response data exists
+    if (!response.data) {
+      console.warn(`No data received for module ID: ${id}`);
+      return null;
+    }
 
     return transformModuleResponse(response.data);
   } catch (error) {
