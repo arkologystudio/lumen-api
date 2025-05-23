@@ -108,6 +108,10 @@ export const getCurriculumModulesWithBlocks = async (): Promise<
     // Safely check if response data exists and has content
     if (!response.data || !Array.isArray(response.data)) {
       console.warn("No valid response data received from WordPress API");
+      console.warn("Response data:", response.data);
+      console.warn("Response data type:", typeof response.data);
+      console.warn("Response data keys:", Object.keys(response.data));
+
       return [];
     }
 
