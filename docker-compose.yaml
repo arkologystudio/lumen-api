@@ -76,7 +76,6 @@ services:
       - NODE_ENV=${NODE_ENV}
       - MILVUS_ADDRESS=standalone:19530
       - WP_API_URL=${WP_API_URL}
-      - WP_USE_CUSTOM_ENDPOINT=${WP_USE_CUSTOM_ENDPOINT}
     extra_hosts:
       - "culturehack.test:host-gateway"
     depends_on:
