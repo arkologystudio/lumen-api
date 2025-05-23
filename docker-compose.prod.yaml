@@ -12,8 +12,4 @@ services:
        - express-app
      networks:
        - milvus-net
-     restart: always
-
-networks:
-  milvus-net:
-    external: true 
+     restart: always 
