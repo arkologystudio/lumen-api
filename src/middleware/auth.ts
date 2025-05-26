@@ -11,11 +11,12 @@ export const authenticateJWT = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
   console.log("authenticateJWT", req.headers.authentication);
   const h = req.headers.authorization?.split(" ");
   if (h?.[0] !== "Bearer" || !h[1]) {
-    return res.status(401).json({ error: "Missing bearer token" });
+    res.status(401).json({ error: "Missing bearer token" });
+    return;
   }
   try {
     const payload = jwt.verify(h[1], String(ENV.JWT_SECRET)) as AuthPayload;
@@ -26,12 +27,17 @@ export const authenticateJWT = (
   }
 };
 
-export const apiKeyAuth = (req: Request, res: Response, next: NextFunction) => {
+export const apiKeyAuth = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
   const key =
     req.header("x-api-key")?.trim() ||
     (typeof req.query.api_key === "string" ? req.query.api_key : "");
   if (!key || !compareApiKey(key)) {
-    return res.status(401).json({ error: "Invalid or missing API key" });
+    res.status(401).json({ error: "Invalid or missing API key" });
+    return;
   }
   next();
 };

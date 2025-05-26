@@ -1,10 +1,12 @@
 import express from "express";
 import {
-  embedCurriculumContent,
-  searchCurriculumModules,
+  searchPosts,
   embedTest,
-  getEmbeddingsCount,
-  dropCollection,
+  getSiteChunksCountController,
+  dropSiteCollectionController,
+  listSiteCollectionsController,
+  getSiteStatsController,
+  getEmbeddingStatusController,
 } from "../controllers/embeddingController";
 import { apiKeyAuth, authenticateJWT } from "../middleware/auth";
 import { searchRateLimiter } from "../middleware/rateLimit";
@@ -12,17 +14,22 @@ import { searchRateLimiter } from "../middleware/rateLimit";
 const router = express.Router();
 
 // ── JWT‐PROTECTED (public client) ──────────────────────────────────────────────
-router.post(
-  "/search",
-  authenticateJWT,
-  searchRateLimiter,
-  searchCurriculumModules
-);
+router.post("/search", authenticateJWT, searchRateLimiter, searchPosts);
 
 // ── API‐KEY‐PROTECTED (server‐to‐server) ────────────────────────────────────────
-router.post("/embed-curriculum", apiKeyAuth, embedCurriculumContent);
+
+// Site management endpoints
+router.get("/sites", apiKeyAuth, listSiteCollectionsController);
+router.get("/sites/:site_id/stats", apiKeyAuth, getSiteStatsController);
+router.get("/sites/:site_id/status", apiKeyAuth, getEmbeddingStatusController);
+router.get("/sites/:site_id/count", apiKeyAuth, getSiteChunksCountController);
+router.delete(
+  "/sites/:site_id/collection",
+  apiKeyAuth,
+  dropSiteCollectionController
+);
+
+// Embedding endpoints
 router.post("/embed-test", apiKeyAuth, embedTest);
-router.post("/drop-collection", apiKeyAuth, dropCollection);
-router.get("/count", apiKeyAuth, getEmbeddingsCount);
 
 export default router;

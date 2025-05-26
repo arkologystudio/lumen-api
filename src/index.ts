@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
-import { initMilvusCollection } from "./services/vectorStore";
+// Multi-site vector store doesn't need global initialization
 import embeddingRoutes from "./routes/embeddingRoutes";
 import authRoutes from "./routes/auth";
-import moduleRoute from "./routes/moduleRoutes";
+// import moduleRoute from "./routes/moduleRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
@@ -16,7 +16,7 @@ app.set("trust proxy", 1);
 // global middleware
 app.use(helmet());
 app.use(morgan("combined"));
-app.use(express.json());
+app.use(express.json({ limit: "50mb" })); // Increase payload limit for large embedding requests
 app.use(
   cors({
     origin: [
@@ -24,7 +24,7 @@ app.use(
       ENV.CORS_ORIGIN_PROD,
       ENV.CORS_ORIGIN_STAGING,
     ],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE"],
   })
 );
 
@@ -38,40 +38,24 @@ app.use("/api/auth", authRoutes);
 // protected: vector-search endpoint
 app.use("/api/embedding", embeddingRoutes);
 
-// Add routes
-app.use("/api/modules", moduleRoute);
-
-// Start server only after Milvus is ready
+// Start server - collections are created on-demand per site
 const startServer = async () => {
   console.log("Starting server initialization...");
-
-  // Try to initialize Milvus with retries
-  let milvusReady = false;
-  for (let i = 0; i < 5; i++) {
-    console.log(`Attempt ${i + 1} to initialize Milvus...`);
-    try {
-      await initMilvusCollection();
-      milvusReady = true;
-      break;
-    } catch (error) {
-      console.error(`Attempt ${i + 1} failed:`, error);
-
-      // Wait between retries
-      console.log(`Waiting 10 seconds before retry ${i + 2}...`);
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-    }
-  }
-
-  if (!milvusReady) {
-    console.error(
-      "Failed to initialize Milvus after 5 attempts. Starting server anyway..."
-    );
-  }
+  console.log(
+    "Multi-site vector store: Collections will be created on-demand per site"
+  );
 
   // Start Express server
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
   });
+
+  // Set server timeouts for long-running operations like embedding
+  server.keepAliveTimeout = 300000; // 5 minutes
+  server.headersTimeout = 310000; // 5 minutes + 10 seconds
+  server.timeout = 300000; // 5 minutes
+
+  console.log("Server timeouts configured for long-running operations");
 };
 
 // Only start server if this file is run directly
