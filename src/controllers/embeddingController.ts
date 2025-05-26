@@ -4,6 +4,7 @@ import {
   querySimilarModules,
   getEmbeddingCount,
   dropCollection as dropVectorStoreCollection,
+  flushCollection,
 } from "../services/vectorStore";
 import { getCurriculumModulesWithBlocks } from "../services/wp_client";
 
@@ -12,17 +13,24 @@ export const embedCurriculumContent: RequestHandler = async (req, res) => {
     // Fetch all curriculum modules from the database
     const modules = await getCurriculumModulesWithBlocks();
 
+    let totalBlocks = 0;
     // Embed and store each module
     for (const module of modules) {
       for (const block of module.blocks) {
         await upsertCurriculumBlock(module, block);
+        totalBlocks++;
       }
     }
 
+    // Flush all data at the end to ensure persistence
+    console.log("Flushing all embedded data to ensure persistence...");
+    await flushCollection();
+
     res.json({
       success: true,
-      message: `Successfully embedded ${modules.length} curriculum modules`,
-      count: modules.length,
+      message: `Successfully embedded ${modules.length} curriculum modules with ${totalBlocks} total blocks`,
+      moduleCount: modules.length,
+      blockCount: totalBlocks,
     });
   } catch (error) {
     console.error("Error embedding curriculum content:", error);

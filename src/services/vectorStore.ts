@@ -131,27 +131,8 @@ export const upsertCurriculumBlock = async (
         );
       }
 
-      // Ensure data is persisted
-      console.log("Flushing collection to persist data");
-      try {
-        const flushResult = await milvusClient.flush({
-          collection_names: [COLLECTION_NAME],
-        });
-        console.log("Flush result:", flushResult);
-
-        if (
-          flushResult.status?.code !== 0 &&
-          flushResult.status?.code !== undefined
-        ) {
-          console.warn(
-            "Flush warning:",
-            flushResult.status?.reason || "Unknown warning"
-          );
-        }
-      } catch (flushError) {
-        console.warn("Flush operation failed, continuing anyway:", flushError);
-        // Don't throw here, as the data is likely still inserted
-      }
+      // Note: Removed individual flush operation to avoid rate limiting
+      // Milvus will automatically flush periodically, and we can flush at the end of batch operations
 
       // Get entity count right after insertion
       const count = await checkEntityCount();
@@ -497,5 +478,30 @@ export const dropCollection = async () => {
   } catch (error) {
     console.error("Failed to drop collection:", error);
     throw error;
+  }
+};
+
+export const flushCollection = async (): Promise<void> => {
+  try {
+    console.log("Manually flushing collection to persist all data");
+    const flushResult = await milvusClient.flush({
+      collection_names: [COLLECTION_NAME],
+    });
+    console.log("Batch flush result:", flushResult);
+
+    if (
+      flushResult.status?.code !== 0 &&
+      flushResult.status?.code !== undefined
+    ) {
+      console.warn(
+        "Batch flush warning:",
+        flushResult.status?.reason || "Unknown warning"
+      );
+    } else {
+      console.log("Batch flush completed successfully");
+    }
+  } catch (flushError) {
+    console.warn("Batch flush operation failed:", flushError);
+    throw flushError;
   }
 };
