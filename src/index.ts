@@ -1,12 +1,22 @@
 import express from "express";
 import cors from "cors";
-// Multi-site vector store doesn't need global initialization
-import embeddingRoutes from "./routes/embeddingRoutes";
+// Import new route modules
 import authRoutes from "./routes/auth";
-// import moduleRoute from "./routes/moduleRoutes";
+import userRoutes from "./routes/userRoutes";
+import siteRoutes from "./routes/siteRoutes";
+import adminRoutes from "./routes/adminRoutes";
+import productRoutes from "./routes/productRoutes";
+import ecosystemProductRoutes from "./routes/ecosystemProductRoutes";
+import adminEcosystemProductRoutes from "./routes/adminEcosystemProductRoutes";
+import activityRoutes from "./routes/activityRoutes";
+import adminActivityRoutes from "./routes/adminActivityRoutes";
+// Legacy routes for backward compatibility
+import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
+import { initializeEcosystemProducts } from "./services/ecosystemProductService";
+
 export const app = express();
 const port = process.env.PORT || 3000;
 
@@ -23,31 +33,84 @@ app.use(
       ENV.CORS_ORIGIN_DEV,
       ENV.CORS_ORIGIN_PROD,
       ENV.CORS_ORIGIN_STAGING,
+      ENV.CORS_ORIGIN_DASHBOARD_DEV,
     ],
-    methods: ["GET", "POST", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
 
 app.get("/", (req, res) => {
-  res.send("CHL Service is up and running!");
+  res.send("Lumen Neural Search API is up and running!");
 });
 
-// public: get short-lived JWT
+// ── API ROUTES ──────────────────────────────────────────────────────────────
+
+// Authentication routes (public)
 app.use("/api/auth", authRoutes);
 
-// protected: vector-search endpoint
+// User management routes (protected)
+app.use("/api/users", userRoutes);
+
+// Site management routes (protected)
+app.use("/api/sites", siteRoutes);
+
+// Admin routes (API key protected)
+app.use("/api/admin", adminRoutes);
+
+// Product search routes (protected)
+app.use("/api/products", productRoutes);
+
+// Ecosystem product management routes
+app.use("/api", ecosystemProductRoutes);
+
+// Activity logging routes (protected)
+app.use("/api", activityRoutes);
+
+// Admin ecosystem product routes (API key protected)
+app.use("/api", adminEcosystemProductRoutes);
+
+// Admin activity routes (API key protected)
+app.use("/api/admin", adminActivityRoutes);
+
+// ── LEGACY ROUTES (for backward compatibility) ─────────────────────────────
 app.use("/api/embedding", embeddingRoutes);
 
 // Start server - collections are created on-demand per site
 const startServer = async () => {
-  console.log("Starting server initialization...");
+  console.log("Starting Lumen Neural Search API server...");
   console.log(
     "Multi-site vector store: Collections will be created on-demand per site"
   );
 
+  // Initialize ecosystem products
+  try {
+    await initializeEcosystemProducts();
+  } catch (error) {
+    console.error("Warning: Failed to initialize ecosystem products:", error);
+    // Don't block server startup on ecosystem product initialization failure
+  }
+
   // Start Express server
   const server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
+    console.log(`
+╔═══════════════════════════════════════════════════════════════╗
+║                    Lumen Neural Search API                    ║
+║                                                               ║
+║  🔐 Authentication:        /api/auth                          ║
+║  👤 User Management:       /api/users                         ║
+║  🌐 Site Management:       /api/sites                         ║
+║  🛍️  Product Search:       /api/products                      ║
+║  🏢 Ecosystem Products:    /api/ecosystem                     ║
+║  📈 Activity Logs:         /api/users/activities              ║
+║  🔧 Admin Functions:       /api/admin                         ║
+║  ⚙️  Admin Ecosystem:      /api/admin/ecosystem               ║
+║  📊 Admin Activities:      /api/admin/activities              ║
+║  📡 Legacy Embedding:      /api/embedding                     ║
+║                                                               ║
+║  Ready to power neural search for your websites! 🚀          ║
+╚═══════════════════════════════════════════════════════════════╝
+    `);
   });
 
   // Set server timeouts for long-running operations like embedding
@@ -60,6 +123,5 @@ const startServer = async () => {
 
 // Only start server if this file is run directly
 if (require.main === module) {
-  //TODO: Check this
   startServer();
 }

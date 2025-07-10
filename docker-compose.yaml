@@ -1,4 +1,4 @@
-version: '3.5'
+version: "3.5"
 
 # Define networks at the top level
 networks:
@@ -6,6 +6,28 @@ networks:
     name: milvus-net
 
 services:
+  # PostgreSQL Database
+  postgres:
+    container_name: lumen-postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: lumen
+      POSTGRES_USER: lumen
+      POSTGRES_PASSWORD: lumen_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - milvus-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumen -d lumen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   etcd:
     container_name: milvus-etcd
     image: quay.io/coreos/etcd:v3.5.5
@@ -69,6 +91,7 @@ services:
       - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
       - ./logs:/app/logs
+      - ./prisma:/app/prisma
     ports:
       - "3000:3000"
     env_file:
@@ -76,13 +99,17 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV}
       - MILVUS_ADDRESS=standalone:19530
+      - DATABASE_URL=postgresql://lumen:lumen_password@postgres:5432/lumen?schema=public
       - WP_API_URL=${WP_API_URL}
     extra_hosts:
       - "culturehack.test:host-gateway"
     depends_on:
-      - standalone
+      postgres:
+        condition: service_healthy
+      standalone:
+        condition: service_started
     networks:
       - milvus-net
     restart: on-failure
     command: >
-      sh -c "sleep 60 && npm run dev"
+      sh -c "sleep 60 && npx prisma generate && npx prisma db push && npm run dev"

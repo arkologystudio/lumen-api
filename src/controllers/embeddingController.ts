@@ -31,6 +31,13 @@ import {
 import { EmbedBatchRequest } from "../types/wordpress";
 import { promises as fs } from "fs";
 import path from "path";
+import {
+  unifiedSearch,
+  analyzeSearchQuery,
+  getSiteContentStats,
+} from "../services/unifiedSearch";
+import { SearchRequest } from "../types";
+import { trackProductUsage } from "../services/ecosystemProductService";
 
 export const searchPosts: RequestHandler = async (req, res) => {
   try {
@@ -73,6 +80,11 @@ export const searchPosts: RequestHandler = async (req, res) => {
       });
       return;
     }
+
+    // Track usage for Neural Search - Knowledge product
+    trackProductUsage(site_id, "neural-search-knowledge").catch((error) => {
+      console.warn("Failed to track knowledge search usage:", error);
+    });
 
     res.json({
       success: true,
@@ -546,6 +558,68 @@ export const getEmbeddingStatusController: RequestHandler = async (
     res.status(500).json({
       success: false,
       message: "Failed to get embedding status",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+};
+
+/**
+ * Unified search controller that searches both posts and products
+ */
+export const unifiedSearchController: RequestHandler = async (req, res) => {
+  try {
+    const searchRequest = req.body as SearchRequest;
+
+    // Validate required fields
+    if (!searchRequest.query || !searchRequest.site_id) {
+      res.status(400).json({
+        success: false,
+        message: "Missing required fields: query, site_id",
+      });
+      return;
+    }
+
+    // Analyze query to provide search strategy insights
+    const queryAnalysis = analyzeSearchQuery(searchRequest.query);
+
+    // Perform unified search
+    const searchResults = await unifiedSearch(searchRequest);
+
+    // Get content type statistics for the site
+    const contentStats = await getSiteContentStats(searchRequest.site_id);
+
+    // Track usage based on what was searched
+    if (searchResults.searchedTypes.includes("posts")) {
+      trackProductUsage(searchRequest.site_id, "neural-search-knowledge").catch(
+        (error) => {
+          console.warn("Failed to track knowledge search usage:", error);
+        }
+      );
+    }
+    if (searchResults.searchedTypes.includes("products")) {
+      trackProductUsage(searchRequest.site_id, "neural-search-product").catch(
+        (error) => {
+          console.warn("Failed to track product search usage:", error);
+        }
+      );
+    }
+
+    res.json({
+      success: searchResults.success,
+      results: searchResults.results,
+      totalResults: searchResults.totalResults,
+      searchedTypes: searchResults.searchedTypes,
+      query: searchResults.query,
+      site_id: searchResults.site_id,
+      queryAnalysis,
+      contentStats,
+      requestedFilters: searchRequest.filters || null,
+    });
+  } catch (error) {
+    console.error("Error in unified search:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to perform unified search",
       error: error instanceof Error ? error.message : "Unknown error",
     });
   }
