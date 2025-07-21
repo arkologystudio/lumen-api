@@ -10,12 +10,18 @@ import ecosystemProductRoutes from "./routes/ecosystemProductRoutes";
 import adminEcosystemProductRoutes from "./routes/adminEcosystemProductRoutes";
 import activityRoutes from "./routes/activityRoutes";
 import adminActivityRoutes from "./routes/adminActivityRoutes";
+// Licensing routes
+import licenseRoutes from "./routes/licenseRoutes";
+import downloadRoutes from "./routes/downloadRoutes";
+import purchaseRoutes from "./routes/purchaseRoutes";
+import pricingRoutes from "./routes/pricingRoutes";
 // Legacy routes for backward compatibility
 import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
 import { initializeEcosystemProducts } from "./services/ecosystemProductService";
+import { initializePluginStorage } from "./services/pluginService";
 
 export const app = express();
 const port = process.env.PORT || 3000;
@@ -61,16 +67,29 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes);
 
 // Ecosystem product management routes
-app.use("/api", ecosystemProductRoutes);
+app.use("/api/ecosystem", ecosystemProductRoutes);
 
 // Activity logging routes (protected)
-app.use("/api", activityRoutes);
+app.use("/api/users", activityRoutes);
 
 // Admin ecosystem product routes (API key protected)
-app.use("/api", adminEcosystemProductRoutes);
+app.use("/api/admin", adminEcosystemProductRoutes);
 
 // Admin activity routes (API key protected)
 app.use("/api/admin", adminActivityRoutes);
+
+// ── LICENSING SYSTEM ROUTES ─────────────────────────────────────────────────
+// License management routes
+app.use("/api/licenses", licenseRoutes);
+
+// Plugin download routes
+app.use("/api/downloads", downloadRoutes);
+
+// Purchase simulation routes
+app.use("/api/purchases", purchaseRoutes);
+
+// Pricing and billing routes (public)
+app.use("/api/pricing", pricingRoutes);
 
 // ── LEGACY ROUTES (for backward compatibility) ─────────────────────────────
 app.use("/api/embedding", embeddingRoutes);
@@ -90,6 +109,14 @@ const startServer = async () => {
     // Don't block server startup on ecosystem product initialization failure
   }
 
+  // Initialize plugin storage directory
+  try {
+    await initializePluginStorage();
+  } catch (error) {
+    console.error("Warning: Failed to initialize plugin storage:", error);
+    // Don't block server startup on plugin storage initialization failure
+  }
+
   // Start Express server
   const server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
@@ -106,6 +133,9 @@ const startServer = async () => {
 ║  🔧 Admin Functions:       /api/admin                         ║
 ║  ⚙️  Admin Ecosystem:      /api/admin/ecosystem               ║
 ║  📊 Admin Activities:      /api/admin/activities              ║
+║  🔐 License Management:    /api/licenses                      ║
+║  📥 Plugin Downloads:      /api/downloads                     ║
+║  💰 Purchase Simulation:   /api/purchases                     ║
 ║  📡 Legacy Embedding:      /api/embedding                     ║
 ║                                                               ║
 ║  Ready to power neural search for your websites! 🚀          ║

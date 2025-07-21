@@ -23,9 +23,9 @@ const router = Router();
 router.use(authenticateJWT);
 
 // User routes - browsing available ecosystem products (logged-in users)
-router.get("/ecosystem/products", getEcosystemProductsController);
-router.get("/ecosystem/products/:slug", getEcosystemProductController);
-router.get("/ecosystem/categories", getProductCategoriesController);
+router.get("/products", getEcosystemProductsController);
+router.get("/products/:slug", getEcosystemProductController);
+router.get("/categories", getProductCategoriesController);
 
 // Site product management
 router.get("/sites/:siteId/products", getSiteProductsController);

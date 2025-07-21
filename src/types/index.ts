@@ -338,6 +338,7 @@ export interface EcosystemProduct {
   usage_based: boolean;
   features?: string[];
   limits?: Record<string, any>;
+  extended_documentation?: string;
   created_at: string;
   updated_at: string;
 }
@@ -415,3 +416,400 @@ export interface ActivityLogResponse {
   total: number;
   has_more: boolean;
 }
+
+// Plugin Licensing Types
+export interface Plugin {
+  id: string;
+  product_id: string;
+  name: string;
+  filename: string;
+  version: string;
+  description?: string;
+  file_path: string;
+  file_size: number;
+  file_hash: string;
+  content_type: string;
+  is_active: boolean;
+  is_public: boolean;
+  release_notes?: string;
+  changelog?: string;
+  max_downloads?: number;
+  created_at: string;
+  updated_at: string;
+  product?: EcosystemProduct;
+}
+
+export interface License {
+  id: string;
+  user_id: string;
+  product_id: string;
+  license_key: string;
+  license_type: LicenseType;
+  status: LicenseStatus;
+  is_active: boolean;
+
+  // Billing information
+  billing_period: BillingPeriod;
+  amount_paid?: number;
+  currency: string;
+
+  // Validity period
+  issued_at: string;
+  expires_at?: string;
+  last_validated?: string;
+
+  // Feature permissions
+  agent_api_access: boolean;
+  max_sites: number;
+
+  // Usage tracking and limits
+  download_count: number;
+  max_downloads?: number;
+  query_count: number;
+  max_queries?: number;
+  query_period_start: string;
+  query_period_end?: string;
+
+  // Add-ons
+  additional_sites: number;
+  custom_embedding: boolean;
+
+  // Metadata
+  purchase_reference?: string;
+  notes?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+
+  // Relationships
+  user?: User;
+  product?: EcosystemProduct;
+  query_usage?: QueryUsage[];
+}
+
+export interface Download {
+  id: string;
+  user_id: string;
+  product_id: string;
+  license_id: string;
+  download_url?: string;
+  download_token?: string;
+  token_expires?: string;
+  ip_address?: string;
+  user_agent?: string;
+  referer?: string;
+  status: DownloadStatus;
+  started_at: string;
+  completed_at?: string;
+  bytes_downloaded?: number;
+  error_message?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  user?: User;
+  product?: EcosystemProduct;
+  license?: License;
+}
+
+export interface QueryUsage {
+  id: string;
+  user_id: string;
+  license_id: string;
+  site_id?: string;
+
+  // Query details
+  query_type: QueryType;
+  endpoint: string;
+  query_text?: string;
+
+  // Request metadata
+  ip_address?: string;
+  user_agent?: string;
+  is_agent_request: boolean;
+
+  // Performance metrics
+  response_time_ms?: number;
+  results_count?: number;
+
+  // Billing
+  billable: boolean;
+
+  // Timestamps
+  created_at: string;
+
+  // Relationships
+  user?: User;
+  license?: License;
+  site?: Site;
+}
+
+export interface PricingTier {
+  id: string;
+  product_id: string;
+
+  // Tier details
+  tier_name: string;
+  display_name: string;
+  description: string;
+
+  // Pricing
+  monthly_price: number;
+  annual_price: number;
+
+  // Features and limits
+  max_queries?: number;
+  max_sites: number;
+  agent_api_access: boolean;
+
+  // Add-on pricing
+  extra_site_price?: number;
+  overage_price?: number;
+  custom_embedding_markup?: number;
+
+  // Metadata
+  features?: string[];
+  is_active: boolean;
+  sort_order: number;
+
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+
+  // Relationships
+  product?: EcosystemProduct;
+}
+
+// Plugin Management Request/Response Types
+export interface CreatePluginRequest {
+  product_id: string;
+  name: string;
+  filename: string;
+  version?: string;
+  description?: string;
+  content_type?: string;
+  is_public?: boolean;
+  release_notes?: string;
+  changelog?: string;
+  max_downloads?: number;
+}
+
+export interface UpdatePluginRequest {
+  name?: string;
+  version?: string;
+  description?: string;
+  is_active?: boolean;
+  is_public?: boolean;
+  release_notes?: string;
+  changelog?: string;
+  max_downloads?: number;
+}
+
+// License Management Request/Response Types
+export interface CreateLicenseRequest {
+  user_id: string;
+  product_slug: string;
+  license_type: LicenseType;
+  billing_period?: BillingPeriod;
+  max_downloads?: number;
+  max_queries?: number;
+  additional_sites?: number;
+  custom_embedding?: boolean;
+  purchase_reference?: string;
+  notes?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface UpdateLicenseRequest {
+  license_type?: LicenseType;
+  status?: LicenseStatus;
+  billing_period?: BillingPeriod;
+  expires_at?: string;
+  max_downloads?: number;
+  max_queries?: number;
+  agent_api_access?: boolean;
+  max_sites?: number;
+  additional_sites?: number;
+  custom_embedding?: boolean;
+  notes?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ValidateLicenseRequest {
+  license_key: string;
+  product_slug?: string;
+  check_agent_access?: boolean;
+  site_id?: string;
+}
+
+export interface ValidateLicenseResponse {
+  valid: boolean;
+  license?: License;
+  message?: string;
+  download_allowed: boolean;
+  query_allowed: boolean;
+  agent_access_allowed: boolean;
+  queries_remaining?: number;
+  sites_remaining?: number;
+}
+
+// Purchase Request/Response Types
+export interface PurchaseRequest {
+  product_slug: string;
+  license_type: LicenseType;
+  billing_period?: BillingPeriod;
+  additional_sites?: number;
+  custom_embedding?: boolean;
+}
+
+export interface SimulatePurchaseRequest extends PurchaseRequest {
+  user_id?: string;
+  payment_reference?: string;
+}
+
+export interface PurchaseResponse {
+  success: boolean;
+  purchase: {
+    purchase_reference: string;
+    product: EcosystemProduct;
+    license: License;
+    pricing_tier: PricingTier;
+  };
+  message: string;
+}
+
+export interface SimulatePurchaseResponse extends PurchaseResponse {}
+
+// Download Request/Response Types
+export interface InitiateDownloadRequest {
+  product_slug: string;
+  license_key: string;
+}
+
+export interface InitiateDownloadResponse {
+  success: boolean;
+  download_token: string;
+  expires_at: string;
+  plugin: {
+    name: string;
+    filename: string;
+    file_size: number;
+    version: string;
+  };
+  message?: string;
+}
+
+export interface DownloadWithTokenRequest {
+  download_token: string;
+}
+
+// Admin Gift License Types
+export interface GiftLicenseRequest {
+  user_id: string;
+  product_slug: string;
+  license_type: LicenseType;
+  billing_period?: BillingPeriod;
+  additional_sites?: number;
+  custom_embedding?: boolean;
+  notes?: string;
+}
+
+// Plugin and License Statistics Types
+export interface PluginStats {
+  total_downloads: number;
+  active_licenses: number;
+  total_licenses: number;
+  download_trend: Array<{
+    date: string;
+    downloads: number;
+  }>;
+}
+
+export interface UserLicenseStats {
+  total_licenses: number;
+  active_licenses: number;
+  expired_licenses: number;
+  downloads_used: number;
+  downloads_remaining: number;
+  queries_used: number;
+  queries_remaining: number;
+  licenses_by_type: Record<LicenseType, number>;
+  licenses_by_status: Record<LicenseStatus, number>;
+}
+
+// Extended Product types with Plugin and Pricing information
+export interface EcosystemProductWithPlugins extends EcosystemProduct {
+  plugins: Plugin[];
+  pricing_tiers: PricingTier[];
+  has_downloadable_content: boolean;
+}
+
+export interface EcosystemProductWithPricing extends EcosystemProduct {
+  pricing_tiers: PricingTier[];
+  has_license: boolean;
+  license_status?: LicenseStatus;
+  current_tier?: string;
+}
+
+// Pricing and Billing Types
+export interface AvailableProductResponse {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: string;
+  features?: string[];
+  pricing_tiers: PricingTier[];
+  has_license: boolean;
+  license_status?: LicenseStatus;
+  current_tier?: string;
+}
+
+export interface PurchaseHistoryItem {
+  purchase_reference: string;
+  product_name: string;
+  license_type: LicenseType;
+  billing_period: BillingPeriod;
+  amount_paid: number;
+  purchased_at: string;
+  license: License;
+}
+
+export interface QueryTrackingRequest {
+  query_type: QueryType;
+  endpoint: string;
+  query_text?: string;
+  site_id?: string;
+  is_agent_request?: boolean;
+  response_time_ms?: number;
+  results_count?: number;
+}
+
+export interface LicenseUsageResponse {
+  queries_used: number;
+  queries_remaining?: number;
+  query_period_start: string;
+  query_period_end?: string;
+  downloads_used: number;
+  downloads_remaining?: number;
+  sites_used: number;
+  sites_remaining: number;
+  agent_access_enabled: boolean;
+  custom_embedding_enabled: boolean;
+}
+
+// License Status Types
+export type LicenseStatus = "active" | "expired" | "revoked" | "suspended";
+export type LicenseType =
+  | "trial"
+  | "standard"
+  | "standard_plus"
+  | "premium"
+  | "premium_plus"
+  | "enterprise";
+export type BillingPeriod = "monthly" | "annual";
+export type QueryType = "search" | "embed" | "analysis";
+export type DownloadStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "expired";

@@ -18,12 +18,9 @@ const router = Router();
 router.use(apiKeyAuth);
 
 // Admin CRUD operations for ecosystem products
-router.get("/admin/ecosystem/products", getAdminEcosystemProductsController);
-router.post("/admin/ecosystem/products", createEcosystemProductController);
-router.put("/admin/ecosystem/products/:slug", updateEcosystemProductController);
-router.delete(
-  "/admin/ecosystem/products/:slug",
-  deleteEcosystemProductController
-);
+router.get("/ecosystem/products", getAdminEcosystemProductsController);
+router.post("/ecosystem/products", createEcosystemProductController);
+router.put("/ecosystem/products/:slug", updateEcosystemProductController);
+router.delete("/ecosystem/products/:slug", deleteEcosystemProductController);
 
 export default router;

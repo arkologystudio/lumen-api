@@ -22,45 +22,49 @@ model User {
   updated_at        DateTime @updatedAt
   is_active         Boolean  @default(true)
   subscription_tier String   @default("free") // 'free', 'pro', 'enterprise'
-  
+
   // Billing fields
   stripe_customer_id String?
   current_period_end DateTime?
   trial_end          DateTime?
-  
+
   // Relationships
-  sites             Site[]
-  api_keys          ApiKey[]
-  usage_records     UsageRecord[]
-  billing_events    BillingEvent[]
-  activity_logs     ActivityLog[]
-  
+  sites          Site[]
+  api_keys       ApiKey[]
+  usage_records  UsageRecord[]
+  billing_events BillingEvent[]
+  activity_logs  ActivityLog[]
+  licenses       License[]
+  downloads      Download[]
+  query_usage    QueryUsage[]
+
   // Indexes
   @@index([stripe_customer_id])
   @@map("users")
 }
 
 model Site {
-  id                  String   @id @default(uuid())
-  user_id             String
-  name                String
-  url                 String   @unique
-  description         String?
-  created_at          DateTime @default(now())
-  updated_at          DateTime @updatedAt
-  is_active           Boolean  @default(true)
-  embedding_status    String   @default("not_started") // 'not_started', 'in_progress', 'completed', 'failed'
-  last_embedding_at   DateTime?
-  post_count          Int      @default(0)
-  chunk_count         Int      @default(0)
-  
+  id                String    @id @default(uuid())
+  user_id           String
+  name              String
+  url               String    @unique
+  description       String?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  is_active         Boolean   @default(true)
+  embedding_status  String    @default("not_started") // 'not_started', 'in_progress', 'completed', 'failed'
+  last_embedding_at DateTime?
+  post_count        Int       @default(0)
+  chunk_count       Int       @default(0)
+
   // Relationships
-  user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  api_keys            ApiKey[]
-  usage_records       UsageRecord[]
-  site_products       SiteProduct[]
-  activity_logs       ActivityLog[]
-  
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  api_keys      ApiKey[]
+  usage_records UsageRecord[]
+  site_products SiteProduct[]
+  activity_logs ActivityLog[]
+  query_usage   QueryUsage[]
+
   // Indexes
   @@index([user_id])
   @@index([url])
@@ -70,25 +74,25 @@ model Site {
 
 // API Key Management
 model ApiKey {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   user_id      String
   site_id      String?
-  name         String   // User-friendly name
-  key_prefix   String   @unique // First 8 chars for display
-  key_hash     String   @unique // Hashed full key
+  name         String // User-friendly name
+  key_prefix   String    @unique // First 8 chars for display
+  key_hash     String    @unique // Hashed full key
   scopes       String[] // ['search', 'embed', 'admin']
-  created_at   DateTime @default(now())
+  created_at   DateTime  @default(now())
   last_used_at DateTime?
-  is_active    Boolean  @default(true)
-  
+  is_active    Boolean   @default(true)
+
   // Rate limiting
   rate_limit_per_hour Int @default(1000)
-  
+
   // Relationships
-  user         User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  site         Site?   @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  site          Site?         @relation(fields: [site_id], references: [id], onDelete: Cascade)
   usage_records UsageRecord[]
-  
+
   // Indexes
   @@index([user_id])
   @@index([site_id])
@@ -99,35 +103,35 @@ model ApiKey {
 
 // Usage Tracking & Quotas
 model UsageRecord {
-  id         String   @id @default(uuid())
+  id         String  @id @default(uuid())
   user_id    String
   site_id    String?
   api_key_id String?
-  
+
   // Usage metrics
-  operation_type String   // 'search', 'embed', 'site_create', etc.
-  endpoint       String   // Full endpoint path
-  method         String   // HTTP method
-  
+  operation_type String // 'search', 'embed', 'site_create', etc.
+  endpoint       String // Full endpoint path
+  method         String // HTTP method
+
   // Tracking data
-  timestamp      DateTime @default(now())
-  response_time  Int?     // Response time in ms
-  status_code    Int
-  error_message  String?
-  
+  timestamp     DateTime @default(now())
+  response_time Int? // Response time in ms
+  status_code   Int
+  error_message String?
+
   // Billing relevant
-  billable_unit  String?  // 'search', 'chunk', 'api_call'
-  unit_count     Int      @default(1)
-  
+  billable_unit String? // 'search', 'chunk', 'api_call'
+  unit_count    Int     @default(1)
+
   // Request metadata
-  user_agent     String?
-  ip_address     String?
-  
+  user_agent String?
+  ip_address String?
+
   // Relationships
-  user           User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  site           Site?   @relation(fields: [site_id], references: [id], onDelete: SetNull)
-  api_key        ApiKey? @relation(fields: [api_key_id], references: [id], onDelete: SetNull)
-  
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  site    Site?   @relation(fields: [site_id], references: [id], onDelete: SetNull)
+  api_key ApiKey? @relation(fields: [api_key_id], references: [id], onDelete: SetNull)
+
   // Indexes
   @@index([user_id, timestamp])
   @@index([site_id, timestamp])
@@ -139,30 +143,30 @@ model UsageRecord {
 
 // Billing & Subscription Events
 model BillingEvent {
-  id                String   @id @default(uuid())
-  user_id           String
-  
+  id      String @id @default(uuid())
+  user_id String
+
   // Stripe data
-  stripe_event_id   String?  @unique
-  stripe_event_type String   // 'invoice.paid', 'subscription.updated', etc.
-  
+  stripe_event_id   String? @unique
+  stripe_event_type String // 'invoice.paid', 'subscription.updated', etc.
+
   // Event details
-  event_type        String   // 'subscription_created', 'payment_succeeded', 'usage_overage', etc.
-  amount            Int?     // Amount in cents
-  currency          String?  @default("usd")
-  
+  event_type String // 'subscription_created', 'payment_succeeded', 'usage_overage', etc.
+  amount     Int? // Amount in cents
+  currency   String? @default("usd")
+
   // Subscription details
   subscription_tier String?
   period_start      DateTime?
   period_end        DateTime?
-  
+
   // Metadata
-  metadata          Json?
-  processed_at      DateTime @default(now())
-  
+  metadata     Json?
+  processed_at DateTime @default(now())
+
   // Relationships
-  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
   // Indexes
   @@index([user_id])
   @@index([stripe_event_id])
@@ -173,21 +177,21 @@ model BillingEvent {
 
 // System Metrics for Admin Analytics
 model SystemMetric {
-  id         String   @id @default(uuid())
-  
+  id String @id @default(uuid())
+
   // Metric details
-  metric_type String   // 'daily_active_users', 'total_searches', 'total_sites', etc.
+  metric_type String // 'daily_active_users', 'total_searches', 'total_sites', etc.
   metric_date DateTime
   value       Float
-  
+
   // Dimensions for grouping
-  dimension_1 String?  // e.g., 'subscription_tier'
-  dimension_2 String?  // e.g., 'operation_type'
-  
+  dimension_1 String? // e.g., 'subscription_tier'
+  dimension_2 String? // e.g., 'operation_type'
+
   // Metadata
   metadata    Json?
   recorded_at DateTime @default(now())
-  
+
   // Indexes
   @@unique([metric_type, metric_date, dimension_1, dimension_2])
   @@index([metric_type, metric_date])
@@ -197,18 +201,18 @@ model SystemMetric {
 
 // Optional: Model for tracking embedding jobs/status
 model EmbeddingJob {
-  id           String   @id @default(uuid())
-  site_id      String
-  status       String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
-  started_at   DateTime @default(now())
-  completed_at DateTime?
+  id            String    @id @default(uuid())
+  site_id       String
+  status        String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  started_at    DateTime  @default(now())
+  completed_at  DateTime?
   error_message String?
-  posts_count  Int      @default(0)
-  chunks_count Int      @default(0)
-  
+  posts_count   Int       @default(0)
+  chunks_count  Int       @default(0)
+
   // Metadata
-  metadata     Json?    // Store additional job information
-  
+  metadata Json? // Store additional job information
+
   @@index([site_id])
   @@index([status])
   @@map("embedding_jobs")
@@ -216,30 +220,35 @@ model EmbeddingJob {
 
 // Ecosystem Products (SaaS offerings)
 model EcosystemProduct {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  slug        String   @unique // URL-friendly identifier
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String  @unique // URL-friendly identifier
   description String
-  category    String   // 'search', 'analysis', 'ai', etc.
-  version     String   @default("1.0")
-  is_active   Boolean  @default(true)
-  is_beta     Boolean  @default(false)
-  
+  category    String // 'search', 'analysis', 'ai', etc.
+  version     String  @default("1.0")
+  is_active   Boolean @default(true)
+  is_beta     Boolean @default(false)
+
   // Pricing info (optional)
-  base_price  Float?   // Monthly base price in USD
-  usage_based Boolean  @default(false) // Whether pricing includes usage components
-  
+  base_price  Float? // Monthly base price in USD
+  usage_based Boolean @default(false) // Whether pricing includes usage components
+
   // Features/capabilities
-  features    Json?    // JSON array of feature descriptions
-  limits      Json?    // JSON object with usage limits per tier
-  
+  features               Json? // JSON array of feature descriptions
+  limits                 Json? // JSON object with usage limits per tier
+  extended_documentation String? // Extended documentation/description for the product
+
   // Metadata
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
   // Relationships
   site_products SiteProduct[]
-  
+  plugins       Plugin[]
+  pricing_tiers PricingTier[]
+  licenses      License[]
+  downloads     Download[]
+
   // Indexes
   @@index([category])
   @@index([is_active])
@@ -248,34 +257,33 @@ model EcosystemProduct {
 
 // Junction table for sites and their registered products
 model SiteProduct {
-  id           String    @id @default(uuid())
-  site_id      String
-  product_id   String
-  
+  id         String @id @default(uuid())
+  site_id    String
+  product_id String
+
   // Status
-  is_enabled   Boolean   @default(true)
-  enabled_at   DateTime  @default(now())
-  disabled_at  DateTime?
-  
+  is_enabled  Boolean   @default(true)
+  enabled_at  DateTime  @default(now())
+  disabled_at DateTime?
+
   // Configuration
-  config       Json?     // Product-specific configuration
-  usage_limits Json?     // Site-specific limits if different from defaults
-  
+  config       Json? // Product-specific configuration
+  usage_limits Json? // Site-specific limits if different from defaults
+
   // Usage tracking
   last_used_at DateTime?
   usage_count  Int       @default(0)
-  
+
   // Metadata
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
-  
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
   // Relationships
-  site         Site             @relation(fields: [site_id], references: [id], onDelete: Cascade)
-  product      EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  
+  site    Site             @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
   // Constraints
   @@unique([site_id, product_id])
-  
   // Indexes
   @@index([site_id])
   @@index([product_id])
@@ -285,35 +293,279 @@ model SiteProduct {
 
 // Activity Log for Recent Activity Feed
 model ActivityLog {
-  id           String   @id @default(uuid())
-  user_id      String
-  
+  id      String @id @default(uuid())
+  user_id String
+
   // Activity details
-  activity_type String   // 'user_updated', 'site_created', 'product_registered', etc.
-  title        String   // Human-readable title
-  description  String?  // Optional detailed description
-  
+  activity_type String // 'user_updated', 'site_created', 'product_registered', etc.
+  title         String // Human-readable title
+  description   String? // Optional detailed description
+
   // Related entities
-  site_id      String?  // If activity is site-related
-  target_id    String?  // ID of the target entity (product_id, site_id, etc.)
-  target_type  String?  // Type of target entity ('site', 'product', 'user', etc.)
-  
+  site_id     String? // If activity is site-related
+  target_id   String? // ID of the target entity (product_id, site_id, etc.)
+  target_type String? // Type of target entity ('site', 'product', 'user', etc.)
+
   // Activity metadata
-  metadata     Json?    // Additional context data
-  ip_address   String?  // User's IP address
-  user_agent   String?  // User's browser/client info
-  
+  metadata   Json? // Additional context data
+  ip_address String? // User's IP address
+  user_agent String? // User's browser/client info
+
   // Timestamps
-  created_at   DateTime @default(now())
-  
+  created_at DateTime @default(now())
+
   // Relationships
-  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  site         Site?    @relation(fields: [site_id], references: [id], onDelete: SetNull)
-  
+  user User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  site Site? @relation(fields: [site_id], references: [id], onDelete: SetNull)
+
   // Indexes
   @@index([user_id, created_at])
   @@index([site_id, created_at])
   @@index([activity_type, created_at])
   @@index([created_at])
   @@map("activity_logs")
+}
+
+// Plugin Files for Download
+model Plugin {
+  id         String @id @default(uuid())
+  product_id String
+
+  // Plugin details
+  name        String
+  filename    String // Original filename (e.g., "ai-ready-core.zip")
+  version     String  @default("1.0")
+  description String?
+
+  // File information
+  file_path    String // Path to file in storage
+  file_size    Int // Size in bytes
+  file_hash    String // SHA256 hash for integrity
+  content_type String @default("application/zip") // MIME type
+
+  // Status
+  is_active Boolean @default(true)
+  is_public Boolean @default(false) // If true, no license required
+
+  // Release information
+  release_notes String?
+  changelog     String?
+
+  // Download restrictions
+  max_downloads Int? // Max downloads per license (null = unlimited)
+
+  // Metadata
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relationships
+  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([product_id])
+  @@index([is_active])
+  @@index([version])
+  @@map("plugins")
+}
+
+// User Licenses for Products
+model License {
+  id         String @id @default(uuid())
+  user_id    String
+  product_id String
+
+  // License details
+  license_key  String @unique // Generated license key
+  license_type String @default("standard") // 'trial', 'standard', 'standard_plus', 'premium', 'premium_plus', 'enterprise'
+
+  // Status
+  status    String  @default("active") // 'active', 'expired', 'revoked', 'suspended'
+  is_active Boolean @default(true)
+
+  // Billing information
+  billing_period String @default("monthly") // 'monthly', 'annual'
+  amount_paid    Float? // Amount paid in USD
+  currency       String @default("usd")
+
+  // Validity period
+  issued_at      DateTime  @default(now())
+  expires_at     DateTime? // null for non-expiring licenses
+  last_validated DateTime?
+
+  // Feature permissions
+  agent_api_access Boolean @default(false) // Whether license includes agent/API access
+  max_sites        Int     @default(1) // Max sites this license covers
+
+  // Usage tracking and limits
+  download_count     Int       @default(0)
+  max_downloads      Int? // Override plugin's max_downloads if set
+  query_count        Int       @default(0) // Current period query usage
+  max_queries        Int? // Query limit per billing period (null = unlimited)
+  query_period_start DateTime  @default(now()) // Start of current query counting period
+  query_period_end   DateTime? // End of current query counting period
+
+  // Add-ons
+  additional_sites Int     @default(0) // Extra sites beyond base tier
+  custom_embedding Boolean @default(false) // Custom embedding models add-on
+
+  // License metadata
+  purchase_reference String? // Reference to payment/order
+  notes              String? // Admin notes
+  metadata           Json? // Additional license data
+
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relationships
+  user        User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product     EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  downloads   Download[]
+  query_usage QueryUsage[]
+
+  // Constraints
+  @@unique([user_id, product_id]) // One license per user per product
+  // Indexes
+  @@index([user_id])
+  @@index([product_id])
+  @@index([license_key])
+  @@index([status])
+  @@index([license_type])
+  @@index([expires_at])
+  @@index([query_period_end])
+  @@map("licenses")
+}
+
+// Query Usage Tracking for License Billing
+model QueryUsage {
+  id         String  @id @default(uuid())
+  user_id    String
+  license_id String
+  site_id    String? // Which site the query was made for
+
+  // Query details
+  query_type String // 'search', 'embed', 'analysis'
+  endpoint   String // API endpoint used
+  query_text String? // Search query (optional, for analytics)
+
+  // Request metadata
+  ip_address       String?
+  user_agent       String?
+  is_agent_request Boolean @default(false) // Whether request came from agent/API
+
+  // Performance metrics
+  response_time_ms Int?
+  results_count    Int?
+
+  // Billing
+  billable Boolean @default(true) // Whether this query counts against quota
+
+  // Timestamps
+  created_at DateTime @default(now())
+
+  // Relationships
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  license License @relation(fields: [license_id], references: [id], onDelete: Cascade)
+  site    Site?   @relation(fields: [site_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([user_id])
+  @@index([license_id])
+  @@index([site_id])
+  @@index([created_at])
+  @@index([query_type])
+  @@index([billable])
+  @@index([is_agent_request])
+  @@map("query_usage")
+}
+
+// Pricing Tiers for Products
+model PricingTier {
+  id         String @id @default(uuid())
+  product_id String
+
+  // Tier details
+  tier_name    String // 'standard', 'standard_plus', 'premium', 'premium_plus', 'enterprise'
+  display_name String // 'Standard', 'Standard+', 'Premium', 'Premium+', 'Enterprise'
+  description  String
+
+  // Pricing
+  monthly_price Float // Price in USD
+  annual_price  Float // Annual price in USD (with discount)
+
+  // Features and limits
+  max_queries      Int? // Query limit per month (null = unlimited)
+  max_sites        Int     @default(1) // Site limit
+  agent_api_access Boolean @default(false) // Agent/API access
+
+  // Add-on pricing
+  extra_site_price        Float? // Price per additional site
+  overage_price           Float? // Price per 100 extra queries
+  custom_embedding_markup Float? // Percentage markup for custom embeddings
+
+  // Metadata
+  features   Json? // Array of feature descriptions
+  is_active  Boolean @default(true)
+  sort_order Int     @default(0)
+
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  // Relationships
+  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  // Constraints
+  @@unique([product_id, tier_name])
+  // Indexes
+  @@index([product_id])
+  @@index([tier_name])
+  @@index([is_active])
+  @@index([sort_order])
+  @@map("pricing_tiers")
+}
+
+// Download Tracking
+model Download {
+  id         String @id @default(uuid())
+  user_id    String
+  product_id String
+  license_id String
+
+  // Download details
+  download_url   String? // Temporary download URL if applicable
+  download_token String? // Temporary download token
+  token_expires  DateTime? // When download token expires
+
+  // Request information
+  ip_address String?
+  user_agent String?
+  referer    String?
+
+  // Download status
+  status           String    @default("initiated") // 'initiated', 'in_progress', 'completed', 'failed'
+  started_at       DateTime  @default(now())
+  completed_at     DateTime?
+  bytes_downloaded Int? // Track partial downloads
+
+  // Error tracking
+  error_message String?
+
+  // Metadata
+  metadata   Json?
+  created_at DateTime @default(now())
+
+  // Relationships
+  user    User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  license License          @relation(fields: [license_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([user_id])
+  @@index([product_id])
+  @@index([license_id])
+  @@index([status])
+  @@index([started_at])
+  @@index([download_token])
+  @@map("downloads")
 }

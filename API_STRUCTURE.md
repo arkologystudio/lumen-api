@@ -260,6 +260,401 @@ Check if a product is active for a site.
 }
 ```
 
+### 🎫 Plugin Licensing (`/api/licenses`)
+*User endpoints require user authentication, admin endpoints require API key authentication*
+
+#### GET `/api/licenses/user`
+Get all licenses for the current user.
+```typescript
+// Query parameters
+?status=active  // Optional: filter by license status
+?product_slug=plugin-name  // Optional: filter by product
+
+// Response
+{
+  success: boolean;
+  licenses: License[];
+  total: number;
+}
+```
+
+#### GET `/api/licenses/user/:license_id`
+Get specific license details for the current user.
+```typescript
+// Response
+{
+  success: boolean;
+  license: License;
+}
+```
+
+#### GET `/api/licenses/user/stats`
+Get license statistics for the current user.
+```typescript
+// Response
+{
+  success: boolean;
+  stats: {
+    total_licenses: number;
+    active_licenses: number;
+    expired_licenses: number;
+    downloads_used: number;
+    downloads_remaining: number;
+  };
+}
+```
+
+#### POST `/api/licenses/validate` 
+Validate a license key.
+```typescript
+// Request
+{
+  license_key: string;
+  product_slug?: string;
+}
+
+// Response
+{
+  success: boolean;
+  valid: boolean;
+  license?: License;
+  reason?: string;
+}
+```
+
+#### POST `/api/licenses/admin` (Admin)
+Create a new license.
+```typescript
+// Request
+{
+  user_id: string;
+  product_slug: string;
+  license_type: 'trial' | 'standard' | 'premium' | 'lifetime';
+  max_downloads?: number;
+  expires_at?: string;
+  notes?: string;
+}
+
+// Response
+{
+  success: boolean;
+  license: License;
+  message: string;
+}
+```
+
+#### PUT `/api/licenses/admin/:license_id` (Admin)
+Update a license.
+```typescript
+// Request
+{
+  status?: 'active' | 'expired' | 'revoked' | 'suspended';
+  max_downloads?: number;
+  expires_at?: string;
+  notes?: string;
+}
+```
+
+#### DELETE `/api/licenses/admin/:license_id` (Admin)
+Revoke a license.
+
+### 🔄 Plugin Downloads (`/api/downloads`)
+*All endpoints require user authentication*
+
+#### POST `/api/downloads/initiate`
+Initiate a plugin download (creates temporary download token).
+```typescript
+// Request
+{
+  product_slug: string;
+  license_key: string;
+}
+
+// Response
+{
+  success: boolean;
+  download_token: string;
+  expires_at: string;
+  plugin: {
+    name: string;
+    filename: string;
+    file_size: number;
+    version: string;
+  };
+}
+```
+
+#### GET `/api/downloads/file/:download_token`
+Download the plugin file using the temporary token.
+```typescript
+// Response: File stream with proper headers
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="plugin-name.zip"
+Content-Length: file_size
+```
+
+#### GET `/api/downloads/user/history`
+Get download history for the current user.
+```typescript
+// Query parameters
+?limit=20  // Optional: number of downloads to return
+?offset=0  // Optional: pagination offset
+
+// Response
+{
+  success: boolean;
+  downloads: Download[];
+  total: number;
+  has_more: boolean;
+}
+```
+
+### 💰 Pricing Information (`/api/pricing`)
+*Public endpoints - no authentication required*
+
+#### GET `/api/pricing/tiers`
+Get all available pricing tiers.
+```typescript
+// Response
+{
+  success: boolean;
+  tiers: Array<{
+    id: string;
+    tier_name: string;
+    display_name: string;
+    description: string;
+    monthly_price: number;
+    annual_price: number;
+    max_queries?: number;
+    max_sites: number;
+    agent_api_access: boolean;
+    extra_site_price?: number;
+    overage_price?: number;
+    custom_embedding_markup: number;
+    features: string[];
+    is_active: boolean;
+    sort_order: number;
+  }>;
+  add_ons: {
+    extra_site_price: number;
+    query_overage_price: number;
+    custom_embedding_markup: number;
+  };
+  total: number;
+}
+```
+
+#### GET `/api/pricing/tiers/:tier_name`
+Get specific pricing tier details.
+```typescript
+// Response
+{
+  success: boolean;
+  tier: {
+    id: string;
+    tier_name: string;
+    display_name: string;
+    description: string;
+    monthly_price: number;
+    annual_price: number;
+    max_queries?: number;
+    max_sites: number;
+    agent_api_access: boolean;
+    extra_site_price?: number;
+    overage_price?: number;
+    custom_embedding_markup: number;
+    features: string[];
+    is_active: boolean;
+    sort_order: number;
+  };
+}
+```
+
+#### POST `/api/pricing/calculate`
+Calculate pricing for a configuration.
+```typescript
+// Request
+{
+  license_type: 'standard' | 'standard_plus' | 'premium' | 'premium_plus' | 'enterprise';
+  billing_period?: 'monthly' | 'annual';
+  additional_sites?: number;
+  custom_embedding?: boolean;
+  query_overage?: number;
+}
+
+// Response
+{
+  success: boolean;
+  pricing: {
+    license_type: string;
+    billing_period: string;
+    base_price: number;
+    add_ons: {
+      additional_sites: {
+        count: number;
+        unit_price: number;
+        total_cost: number;
+      };
+      custom_embedding: {
+        enabled: boolean;
+        markup_percentage: number;
+        total_cost: number;
+      };
+      query_overage: {
+        count: number;
+        unit_price: number;
+        total_cost: number;
+      };
+    };
+    total_price: number;
+    annual_savings: number;
+    annual_savings_percentage: number;
+    currency: string;
+  };
+  tier_details: {
+    tier_name: string;
+    display_name: string;
+    max_queries?: number;
+    max_sites: number;
+    agent_api_access: boolean;
+    features: string[];
+  };
+}
+```
+
+#### GET `/api/pricing/products/:product_slug/tiers`
+Get pricing tiers for a specific product.
+```typescript
+// Response
+{
+  success: boolean;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    description: string;
+    category: string;
+  };
+  pricing_tiers: PricingTier[];
+  add_ons: {
+    extra_site_price: number;
+    query_overage_price: number;
+    custom_embedding_markup: number;
+  };
+  total: number;
+}
+```
+
+#### GET `/api/pricing/comparison`
+Get pricing tier comparison data.
+```typescript
+// Response
+{
+  success: boolean;
+  comparison: {
+    tiers: Array<{
+      tier_name: string;
+      display_name: string;
+      monthly_price: number;
+      annual_price: number;
+      max_queries?: number;
+      max_sites: number;
+      agent_api_access: boolean;
+      features: string[];
+      sort_order: number;
+      recommended: boolean;
+    }>;
+    features: Array<{
+      name: string;
+      standard: string | boolean;
+      standard_plus: string | boolean;
+      premium: string | boolean;
+      premium_plus: string | boolean;
+      enterprise: string | boolean;
+    }>;
+    add_ons: {
+      extra_site_price: number;
+      query_overage_price: number;
+      custom_embedding_markup: number;
+    };
+  };
+}
+```
+
+### 🛒 Plugin Purchases (`/api/purchases`)
+*All endpoints require user authentication*
+
+#### GET `/api/purchases/available`
+Browse available plugins for purchase.
+```typescript
+// Response
+{
+  success: boolean;
+  products: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    description: string;
+    category: string;
+    base_price: number;
+    features: string[];
+    has_license: boolean;
+    license_status?: string;
+  }>;
+  total: number;
+}
+```
+
+#### POST `/api/purchases/simulate`
+Simulate a plugin purchase (creates license without billing).
+```typescript
+// Request
+{
+  product_slug: string;
+  license_type: 'trial' | 'standard' | 'premium' | 'lifetime';
+}
+
+// Response
+{
+  success: boolean;
+  purchase: {
+    purchase_reference: string;
+    product: EcosystemProduct;
+    license: License;
+  };
+  message: string;
+}
+```
+
+#### GET `/api/purchases/user/history`
+Get purchase history for the current user.
+```typescript
+// Response
+{
+  success: boolean;
+  purchases: Array<{
+    purchase_reference: string;
+    product_name: string;
+    license_type: string;
+    purchased_at: string;
+    license: License;
+  }>;
+  total: number;
+}
+```
+
+#### POST `/api/purchases/admin/gift` (Admin)
+Gift a license to a user.
+```typescript
+// Request
+{
+  user_id: string;
+  product_slug: string;
+  license_type: 'trial' | 'standard' | 'premium' | 'lifetime';
+  notes?: string;
+}
+```
+
 ### 🔧 Admin Functions (`/api/admin`)
 *All endpoints require API key authentication*
 
@@ -434,6 +829,74 @@ interface SiteProduct {
   created_at: string;
   updated_at: string;
   product?: EcosystemProduct;
+}
+```
+
+### Plugin
+```typescript
+interface Plugin {
+  id: string;
+  product_id: string;
+  name: string;
+  filename: string;
+  file_path: string;
+  file_size: number;
+  file_hash: string;
+  content_type: string;
+  version: string;
+  is_active: boolean;
+  is_public: boolean;
+  release_notes?: string;
+  changelog?: string;
+  max_downloads?: number;
+  created_at: string;
+  updated_at: string;
+  product?: EcosystemProduct;
+}
+```
+
+### License
+```typescript
+interface License {
+  id: string;
+  user_id: string;
+  product_id: string;
+  license_key: string;
+  license_type: 'trial' | 'standard' | 'premium' | 'lifetime';
+  status: 'active' | 'expired' | 'revoked' | 'suspended';
+  issued_at: string;
+  expires_at?: string;
+  download_count: number;
+  max_downloads?: number;
+  purchase_reference?: string;
+  notes?: string;
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  product?: EcosystemProduct;
+}
+```
+
+### Download
+```typescript
+interface Download {
+  id: string;
+  user_id: string;
+  license_id: string;
+  plugin_id: string;
+  download_token: string;
+  token_expires: string;
+  ip_address?: string;
+  user_agent?: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'expired';
+  bytes_downloaded?: number;
+  error_message?: string;
+  created_at: string;
+  completed_at?: string;
+  user?: User;
+  license?: License;
+  plugin?: Plugin;
 }
 ```
 

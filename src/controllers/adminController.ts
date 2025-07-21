@@ -2,6 +2,11 @@ import { RequestHandler } from "express";
 import { getAllUsers } from "../services/userService";
 import { getAllSites, searchSites } from "../services/siteService";
 import { listSiteCollections } from "../services/multiSiteVectorStore";
+import {
+  debugAllEcosystemProducts,
+  deleteEcosystemProduct,
+  cleanupAndReinitializeProducts,
+} from "../services/ecosystemProductService";
 
 /**
  * Get all users (admin only)
@@ -122,6 +127,85 @@ export const getSystemStatsController: RequestHandler = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to get system statistics",
+    });
+  }
+};
+
+/**
+ * Debug all ecosystem products (admin only)
+ */
+export const debugEcosystemProductsController: RequestHandler = async (
+  req,
+  res
+) => {
+  try {
+    const products = await debugAllEcosystemProducts();
+
+    res.json({
+      success: true,
+      data: products,
+      message: `Found ${products.length} ecosystem products (including inactive)`,
+    });
+  } catch (error) {
+    console.error("Error debugging ecosystem products:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to debug ecosystem products",
+    });
+  }
+};
+
+/**
+ * Delete ecosystem product (admin only)
+ */
+export const deleteEcosystemProductController: RequestHandler = async (
+  req,
+  res
+) => {
+  try {
+    const { identifier } = req.params;
+
+    if (!identifier) {
+      return res.status(400).json({
+        success: false,
+        error: "Product ID or slug is required",
+      });
+    }
+
+    await deleteEcosystemProduct(identifier);
+
+    res.json({
+      success: true,
+      message: `Ecosystem product deleted: ${identifier}`,
+    });
+  } catch (error) {
+    console.error("Error deleting ecosystem product:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete ecosystem product",
+    });
+  }
+};
+
+/**
+ * Cleanup and reinitialize ecosystem products (admin only)
+ */
+export const cleanupEcosystemProductsController: RequestHandler = async (
+  req,
+  res
+) => {
+  try {
+    await cleanupAndReinitializeProducts();
+
+    res.json({
+      success: true,
+      message: "Ecosystem products cleaned up and reinitialized successfully",
+    });
+  } catch (error) {
+    console.error("Error cleaning up ecosystem products:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to cleanup ecosystem products",
     });
   }
 };

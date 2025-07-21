@@ -17,9 +17,9 @@ import { authenticateJWT } from "../middleware/auth";
 const router = Router();
 
 // User activity routes (JWT required)
-router.get("/users/activities", authenticateJWT, getUserActivitiesController);
+router.get("/activities", authenticateJWT, getUserActivitiesController);
 router.get(
-  "/users/activities/stats",
+  "/activities/stats",
   authenticateJWT,
   getUserActivityStatsController
 );

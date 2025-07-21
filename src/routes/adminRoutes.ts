@@ -4,6 +4,9 @@ import {
   getAllSitesController,
   getAllCollectionsController,
   getSystemStatsController,
+  debugEcosystemProductsController,
+  deleteEcosystemProductController,
+  cleanupEcosystemProductsController,
 } from "../controllers/adminController";
 import {
   dropSiteCollectionController,
@@ -31,5 +34,10 @@ router.get("/collections", getAllCollectionsController);
 
 // ── SYSTEM STATISTICS ─────────────────────────────────────────────────────
 router.get("/stats", getSystemStatsController);
+
+// ── ECOSYSTEM PRODUCTS ─────────────────────────────────────────────────────
+router.get("/products/debug", debugEcosystemProductsController);
+router.delete("/products/:identifier", deleteEcosystemProductController);
+router.post("/products/cleanup", cleanupEcosystemProductsController);
 
 export default router;
