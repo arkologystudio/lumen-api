@@ -1,0 +1,60 @@
+{
+  "timestamp": "2025-05-26T17:45:26.553Z",
+  "siteId": "culturehack-test",
+  "siteName": "Culture Hack Labs",
+  "siteUrl": "http://culturehack.test",
+  "totalChunks": 3,
+  "chunkingStats": {
+    "totalChunks": 3,
+    "averageChunkSize": 688,
+    "totalPosts": 1,
+    "chunksPerPost": {
+      "1038": 3
+    },
+    "sentenceCompleteness": 100
+  },
+  "chunks": [
+    {
+      "id": "culturehack-test-1038-chunk-0",
+      "postId": 1038,
+      "postTitle": "The Culture of the Anthropocene",
+      "postUrl": "http://culturehack.test/curriculum/curriculum/module-1-the-culture-of-the-anthropocene/",
+      "siteId": "culturehack-test",
+      "siteName": "Culture Hack Labs",
+      "siteUrl": "http://culturehack.test",
+      "chunkIndex": 0,
+      "contentLength": 970,
+      "content": "Culture can be defined as a social domain that emphasizes the practices, discourses and material expressions of a community. In the age of the Anthropocene however, it is important for us to have a much more nuanced understanding of culture. In the last half a century, we have seen new social and cultural systems emerge – globalization, neoliberalism and social dictatorships. All of which gave warrant to rampant resource extraction and ecological destruction and exponential economic inequality and poverty.\n\nIt is therefore incredibly important that we fully understand the nuance and complexity of the cultural systems that have birthed and sustained the Anthropocene. In contrast to its traditional Enlightenment definition where culture meant the evolution of the human condition, we can see that Culture is not your friend.\n\nTherefore, a more contextually relevant definition of Culture is the normative values and belief systems that coordinate human activity.",
+      "startPosition": 0,
+      "endPosition": 972
+    },
+    {
+      "id": "culturehack-test-1038-chunk-1",
+      "postId": 1038,
+      "postTitle": "The Culture of the Anthropocene",
+      "postUrl": "http://culturehack.test/curriculum/curriculum/module-1-the-culture-of-the-anthropocene/",
+      "siteId": "culturehack-test",
+      "siteName": "Culture Hack Labs",
+      "siteUrl": "http://culturehack.test",
+      "chunkIndex": 1,
+      "contentLength": 953,
+      "content": "Through these normative values and belief systems, culture determines how we understand ourselves and our place in the world. The culture of the Anthropocene creates systems of meaning that are inherently dualistic, creating distinctions between social, political and ecological categories e.g. nature/culture, subject/object, knower/object-to-be-known, human/non-human, self/other.\n\nAll of us contribute to and are affected by culture, yet some, more than others have a disproportionate responsibility and benefit. Therefore, culture is both constructed and emergent, as well as visible and invisible simultaneously. We can identify the values of a particular culture simply by making empirical observations within its context, by looking at the social, political and ecological outcomes produced by its cultural system.\n\nUnderstanding that culture delineates a set of distinctions, assumptions, norms and beliefs about the world is the key point here.",
+      "startPosition": 970,
+      "endPosition": 1925
+    },
+    {
+      "id": "culturehack-test-1038-chunk-2",
+      "postId": 1038,
+      "postTitle": "The Culture of the Anthropocene",
+      "postUrl": "http://culturehack.test/curriculum/curriculum/module-1-the-culture-of-the-anthropocene/",
+      "siteId": "culturehack-test",
+      "siteName": "Culture Hack Labs",
+      "siteUrl": "http://culturehack.test",
+      "chunkIndex": 2,
+      "contentLength": 142,
+      "content": "This understanding can help us to develop ways to critically assess our cultural systems and find ways to evolve them beyond Anthropocentrism.",
+      "startPosition": 1925,
+      "endPosition": 2068
+    }
+  ]
+}

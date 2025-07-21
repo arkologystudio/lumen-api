@@ -2,17 +2,23 @@ FROM node:18
 
 WORKDIR /app
 
+# Copy package files first for better caching
 COPY package*.json ./
 COPY tsconfig.json ./
 
+# Install dependencies
 RUN npm install
 
-# Don't need nodemon anymore since ts-node-dev handles it
-# RUN npm install nodemon -g
+# Copy Prisma schema
+COPY prisma ./prisma
 
+# Copy the rest of the application
 COPY . .
+
+# Generate Prisma client (this should happen after copying the app)
+RUN npx prisma generate
 
 EXPOSE 3000
 
-# Development
-CMD ["npm", "run", "dev"] 
+# Development command with Prisma setup
+CMD ["sh", "-c", "npx prisma db push && npx prisma generate && npm run dev"] 

@@ -12,3 +12,8 @@ DS_Store
 
 .DS_Store
 
+.logs
+
+logs/
+/logs
+/generated/prisma
