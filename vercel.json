@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "name": "lighthouse-api",
+  "builds": [
+    {
+      "src": "src/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["prisma/schema.prisma"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/index.ts"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "src/index.ts": {
+      "maxDuration": 30
+    }
+  },
+  "installCommand": "npm install && npx prisma generate",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}

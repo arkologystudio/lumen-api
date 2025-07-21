@@ -94,12 +94,10 @@ app.use("/api/pricing", pricingRoutes);
 // ── LEGACY ROUTES (for backward compatibility) ─────────────────────────────
 app.use("/api/embedding", embeddingRoutes);
 
-// Start server - collections are created on-demand per site
+// Start server - using Supabase for all storage needs
 const startServer = async () => {
   console.log("Starting Lumen Neural Search API server...");
-  console.log(
-    "Multi-site vector store: Collections will be created on-demand per site"
-  );
+  console.log("Using Supabase for database, vector embeddings, and file storage");
 
   // Initialize ecosystem products
   try {
@@ -109,12 +107,12 @@ const startServer = async () => {
     // Don't block server startup on ecosystem product initialization failure
   }
 
-  // Initialize plugin storage directory
+  // Initialize Supabase Storage for plugin files
   try {
     await initializePluginStorage();
   } catch (error) {
-    console.error("Warning: Failed to initialize plugin storage:", error);
-    // Don't block server startup on plugin storage initialization failure
+    console.error("Warning: Failed to initialize Supabase Storage:", error);
+    // Don't block server startup on storage initialization failure
   }
 
   // Start Express server
