@@ -23,7 +23,7 @@ export const ENV = {
   WP_APPLICATION_PASS_NAME: process.env.WP_APPLICATION_PASS_NAME,
   
   // Search threshold
-  THRESHOLD: process.env.THRESHOLD,
+  SEARCH_THRESHOLD: process.env.THRESHOLD,
   
   // Authentication
   JWT_SECRET: process.env.JWT_SECRET!,
@@ -33,15 +33,14 @@ export const ENV = {
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS!),
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX!),
   
-  // reCAPTCHA
-  RECAPTCHA_SECRET: process.env.RECAPTCHA_SECRET!,
-  RECAPTCHA_THRESHOLD: parseFloat(process.env.RECAPTCHA_THRESHOLD!),
+
   
   // CORS Origins
-  CORS_ORIGIN_DEV: process.env.CORS_ORIGIN_DEV!,
-  CORS_ORIGIN_PROD: process.env.CORS_ORIGIN_PROD!,
+
   CORS_ORIGIN_DASHBOARD_DEV: process.env.CORS_ORIGIN_DASHBOARD_DEV!,
-  CORS_ORIGIN_STAGING: process.env.CORS_ORIGIN_STAGING!,
+  CORS_ORIGIN_DASHBOARD_STAGING: process.env.CORS_ORIGIN_DASHBOARD_STAGING!,
+  CORS_ORIGIN_DASHBOARD_PROD: process.env.CORS_ORIGIN_DASHBOARD_PROD!,
+
   
   // Server API Key
   SERVER_API_KEY: process.env.SERVER_API_KEY!,

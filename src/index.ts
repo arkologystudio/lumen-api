@@ -36,9 +36,8 @@ app.use(express.json({ limit: "50mb" })); // Increase payload limit for large em
 app.use(
   cors({
     origin: [
-      ENV.CORS_ORIGIN_DEV,
-      ENV.CORS_ORIGIN_PROD,
-      ENV.CORS_ORIGIN_STAGING,
+      ENV.CORS_ORIGIN_DASHBOARD_STAGING,
+      ENV.CORS_ORIGIN_DASHBOARD_PROD,
       ENV.CORS_ORIGIN_DASHBOARD_DEV,
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],

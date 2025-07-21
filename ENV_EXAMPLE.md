@@ -33,9 +33,6 @@ WP_APPLICATION_PASS_PASSWORD=your-app-password
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=10
 
-# reCAPTCHA (optional)
-RECAPTCHA_SECRET=your-recaptcha-secret-here
-RECAPTCHA_THRESHOLD=0.5
 
 # CORS Origins
 CORS_ORIGIN_DEV=http://localhost:3000
