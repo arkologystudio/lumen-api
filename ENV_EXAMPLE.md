@@ -13,13 +13,10 @@ PORT=3000
 JWT_SECRET=your-super-secret-jwt-key-here
 JWT_TTL=3600
 
-# Database Configuration
-DATABASE_URL=postgresql://lumen:lumen_password@postgres:5432/lumen?schema=public
-
-# Milvus Vector Database
-MILVUS_ADDRESS=standalone:19530
-MILVUS_USERNAME=
-MILVUS_PASSWORD=
+# Supabase Configuration
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 
 # Embedding Configuration
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
@@ -52,8 +49,27 @@ SERVER_API_KEY=your-secure-server-api-key-here
 
 ## Important Notes
 
-1. **DATABASE_URL**: This should match your PostgreSQL configuration in docker-compose.yaml
-2. **JWT_SECRET**: Use a strong, random secret for production
-3. **SERVER_API_KEY**: Use a secure API key for admin endpoints
-4. **HUGGING_FACE_API_TOKEN**: Optional, only needed if using Hugging Face inference API
-5. Make sure to add `.env` to your `.gitignore` file to avoid committing secrets 
+1. **SUPABASE_URL**: Found in your Supabase project settings
+2. **SUPABASE_SERVICE_ROLE_KEY**: Found in your Supabase project API settings (keep this secret!)
+3. **DATABASE_URL**: Your Supabase PostgreSQL connection string with pgvector enabled
+4. **JWT_SECRET**: Use a strong, random secret for production
+5. **SERVER_API_KEY**: Use a secure API key for admin endpoints
+6. **HUGGING_FACE_API_TOKEN**: Required for embedding generation
+7. Make sure to add `.env` to your `.gitignore` file to avoid committing secrets
+
+## Supabase Setup
+
+1. Create a new Supabase project at https://supabase.com
+2. Enable the pgvector extension in your database:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+3. Copy your project URL and service role key to your `.env` file
+4. The plugin storage bucket will be created automatically on first run
+
+## Free Tier Limits
+
+This configuration uses only free services:
+- **Supabase**: 500MB database + 1GB storage (free tier)
+- **Hugging Face**: Free inference API
+- **Vercel**: Free hosting for the API (hobby plan) 

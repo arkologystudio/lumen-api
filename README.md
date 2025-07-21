@@ -1,445 +1,270 @@
-# Multi-Site Embedding API
+# Lumen Neural Search API
 
 ## Overview
-This service provides semantic search capabilities for multiple WordPress sites through vector embeddings. Each site gets its own isolated collection in the vector database, enabling secure multi-tenant operation.
+This service provides semantic search capabilities for multiple WordPress sites through vector embeddings. The system uses Supabase for all data storage needs - PostgreSQL with pgvector for embeddings, and Supabase Storage for file management.
 
 ## System Architecture
 
-The service consists of several key components:
+The service is built with modern, cloud-native technologies:
 
 - **Express.js Application**: A Node.js backend service built with TypeScript
-- **Milvus**: Vector database for storing and searching embedded content (one collection per site)
-- **MinIO**: Object storage for managing large files and binary data
-- **etcd**: Key-value store used by Milvus for metadata management
+- **Supabase Database**: PostgreSQL with pgvector extension for vector embeddings
+- **Supabase Storage**: Object storage for plugin files and assets
+- **Vercel**: Serverless deployment platform (hobby tier compatible)
 
-## Multi-Site Features
+## Features
 
-### Site Isolation
-- Each site gets a dedicated Milvus collection: `site_{site_id}_chunks`
-- Complete data isolation between sites
-- Independent scaling and management per site
+### 🔍 Neural Search
+- Semantic search across WordPress content using vector embeddings
+- Multi-site support with data isolation
+- Real-time search with relevance scoring
 
-### Site Management
-- List all registered sites
-- Get site-specific statistics
-- Drop site collections for cleanup
-- On-demand collection creation
+### 🏪 Plugin Marketplace
+- Ecosystem product management
+- Plugin file storage and distribution
+- License management and validation
 
-## Prerequisites
+### 🎯 Free Tier Compatible
+- Supabase free tier: 500MB database + 1GB storage
+- Vercel hobby plan: Free serverless functions
+- Hugging Face: Free embedding API
 
-- Docker and Docker Compose
-- Node.js 18+
-- Environment variables setup (see Configuration section)
+## Quick Start
 
-## Configuration
+### 1. Supabase Setup
 
-Create a `.env` file with the following variables:
+1. Create a new Supabase project at https://supabase.com
+2. Enable the pgvector extension:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+3. Copy your project credentials
+
+### 2. Environment Configuration
+
+Create a `.env` file:
 
 ```env
-# Milvus Configuration
-MILVUS_ADDRESS=standalone:19530
-MILVUS_USERNAME=
-MILVUS_PASSWORD=
+# Supabase Configuration
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 
 # Embedding Configuration
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 INFERENCE_PROVIDER=huggingface
-HUGGING_FACE_API_TOKEN=your_token_here
+HUGGING_FACE_API_TOKEN=your-token-here
 THRESHOLD=0.7
 
 # Authentication
-JWT_SECRET=your_jwt_secret
-JWT_TTL=24h
-SERVER_API_KEY=your_server_api_key
+JWT_SECRET=your-jwt-secret
+JWT_TTL=3600
+SERVER_API_KEY=your-secure-api-key
 
 # Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=10
 
 # CORS Origins
 CORS_ORIGIN_DEV=http://localhost:3000
 CORS_ORIGIN_PROD=https://your-production-domain.com
-CORS_ORIGIN_STAGING=https://your-staging-domain.com
-
-# reCAPTCHA
-RECAPTCHA_SECRET=your_recaptcha_secret
-RECAPTCHA_THRESHOLD=0.5
-
-# Docker
-DOCKER_VOLUME_DIRECTORY=./
 ```
 
-## Installation & Setup
-
-### Local Development
-
-For local development, start the core services:
+### 3. Local Development
 
 ```bash
-docker-compose up -d
+# Install dependencies
+npm install
+
+# Generate Prisma client
+npx prisma generate
+
+# Push database schema
+npx prisma db push
+
+# Start development server
+npm run dev
 ```
 
-This will start:
-- Milvus standalone server (port 19530)
-- MinIO (port 9000)
-- Express application (port 3000)
-
-### Production Deployment
-
-For production deployment with nginx proxy:
+### 4. Deploy to Vercel
 
 ```bash
-docker-compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
-```
+# Install Vercel CLI
+npm i -g vercel
 
-This additionally includes:
-- **nginx**: Reverse proxy server (port 80)
+# Deploy
+vercel --prod
+
+# Add environment variables in Vercel dashboard
+```
 
 ## API Endpoints
 
 ### Authentication
 
-The API uses two authentication methods:
+The API uses JWT-based authentication for users and API key authentication for server-to-server communication.
 
-1. **JWT Authentication** (for client applications)
-   - Used for search endpoints
-   - Include `Authorization: Bearer <token>` header
+#### Headers
+- **User Auth**: `Authorization: Bearer <jwt-token>`
+- **API Key Auth**: `X-API-Key: <your-api-key>`
 
-2. **API Key Authentication** (for server-to-server)
-   - Used for embedding and management endpoints
-   - Include `X-API-Key: <your_api_key>` header
+### Core Endpoints
 
-### Search Endpoints
+#### POST `/api/auth/register`
+Register a new user account.
 
-#### POST `/api/embedding/search`
-Search for similar content within a specific site.
+#### POST `/api/auth/login`
+Authenticate and receive JWT token.
 
-**Authentication**: JWT Required
+#### POST `/api/sites`
+Create a new site for embedding.
 
-**Request Body**:
-```json
-{
-  "query": "search query text",
-  "site_id": "your-site-id",
-  "topK": 10
-}
-```
+#### POST `/api/sites/:site_id/embed`
+Embed WordPress content for semantic search.
 
-**Response**:
-```json
-{
-  "success": true,
-  "results": [
-    {
-      "postId": 123,
-      "postTitle": "Post Title",
-      "postUrl": "https://site.com/post",
-      "siteId": "your-site-id",
-      "siteName": "Your Site",
-      "siteUrl": "https://site.com",
-      "averageScore": 0.85,
-      "maxScore": 0.92,
-      "totalChunks": 3,
-      "chunks": [
-        {
-          "chunkId": "your-site-id-123-chunk-0",
-          "chunkIndex": 0,
-          "content": "Relevant content chunk...",
-          "score": 0.92
-        }
-      ]
-    }
-  ],
-  "site_id": "your-site-id",
-  "totalPosts": 1,
-  "totalChunks": 3
-}
-```
+#### POST `/api/sites/:site_id/search`
+Search within a specific site's content.
 
-### Embedding Endpoints
+### Product & License Endpoints
 
-#### POST `/api/embedding/embed-test`
-Process and embed content from a WordPress site.
+#### GET `/api/ecosystem-products`
+List available ecosystem products.
 
-**Authentication**: API Key Required
+#### POST `/api/licenses`
+Create a new product license.
 
-**Request Body**:
-```json
-{
-  "site_id": "your-site-id",
-  "site_name": "Your Site Name",
-  "site_url": "https://your-site.com",
-  "posts": [
-    {
-      "id": 123,
-      "type": "post",
-      "title": "Post Title",
-      "content": "<p>HTML content...</p>",
-      "url": "https://your-site.com/post",
-      "site_id": "your-site-id",
-      "site_name": "Your Site Name",
-      "site_url": "https://your-site.com"
-    }
-  ]
-}
-```
+#### GET `/api/downloads/:download_id`
+Download plugin files with license validation.
 
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Successfully processed batch request...",
-  "originalPostCount": 1,
-  "reconstructedPostCount": 1,
-  "processedPostCount": 1,
-  "overallStats": {
-    "totalWordCount": 500,
-    "totalCharacterCount": 3000,
-    "totalParagraphCount": 10,
-    "averageWordsPerPost": 500,
-    "averageParagraphsPerPost": 10
-  },
-  "chunkingStats": {
-    "totalChunks": 3,
-    "averageChunkSize": 950,
-    "chunksPerPost": { "123": 3 },
-    "sentenceCompleteness": 85
-  },
-  "logFiles": {
-    "mainRequest": "logs/embed-batch-request-your-site-id-timestamp.json",
-    "chunks": "logs/chunks-your-site-id-timestamp.json",
-    "embeddings": "logs/embeddings-your-site-id-timestamp.json"
-  }
-}
-```
+## Data Processing Pipeline
 
-### Site Management Endpoints
+### 1. Content Ingestion
+- WordPress plugin sends chunked post data
+- API validates and reconstructs full content
+- Extracts clean text from HTML
 
-#### GET `/api/embedding/sites`
-List all registered sites.
+### 2. Text Chunking
+- Intelligent chunking with sentence boundary detection
+- Configurable chunk size (default: 1000 characters)
+- Overlap between chunks for context preservation
 
-**Authentication**: API Key Required
+### 3. Vector Embedding
+- Generates embeddings using Hugging Face models
+- Stores vectors in Supabase PostgreSQL with pgvector
+- Enables semantic similarity search
 
-**Response**:
-```json
-{
-  "success": true,
-  "sites": [
-    {
-      "site_id": "site-1",
-      "site_name": "site-1",
-      "site_url": "",
-      "collection_name": "site_site_1_chunks",
-      "created_at": "2024-01-01T00:00:00.000Z",
-      "updated_at": "2024-01-01T00:00:00.000Z",
-      "chunk_count": 150
-    }
-  ],
-  "total": 1
-}
-```
+### 4. Search & Retrieval
+- Cosine similarity search using pgvector operators
+- Configurable similarity threshold
+- Returns ranked results with relevance scores
 
-#### GET `/api/embedding/sites/:site_id/stats`
-Get statistics for a specific site.
+## Database Schema
 
-**Authentication**: API Key Required
+### Core Tables
+- **users**: User accounts and authentication
+- **sites**: WordPress site registrations
+- **post_chunks**: Text chunks with vector embeddings
+- **product_embeddings**: WooCommerce product vectors
 
-**Response**:
-```json
-{
-  "success": true,
-  "stats": {
-    "siteId": "your-site-id",
-    "collectionName": "site_your_site_id_chunks",
-    "chunkCount": 150,
-    "exists": true
-  }
-}
-```
+### Product Management
+- **ecosystem_products**: Available products/plugins
+- **licenses**: User product licenses
+- **downloads**: Download tracking and validation
 
-#### GET `/api/embedding/sites/:site_id/count`
-Get chunk count for a specific site.
+## File Storage
 
-**Authentication**: API Key Required
+Plugin files are stored in Supabase Storage with:
+- Private buckets for security
+- Automatic file integrity verification
+- Signed URLs for temporary access
+- 50MB file size limit
 
-**Response**:
-```json
-{
-  "success": true,
-  "site_id": "your-site-id",
-  "count": 150
-}
-```
+## Free Tier Limits
 
-#### DELETE `/api/embedding/sites/:site_id/collection`
-Drop the collection for a specific site (removes all data).
+### Supabase (Free)
+- **Database**: 500MB PostgreSQL with pgvector
+- **Storage**: 1GB for plugin files
+- **API Requests**: 50,000/month
 
-**Authentication**: API Key Required
+### Vercel (Hobby)
+- **Functions**: 100GB-hours/month
+- **Bandwidth**: 100GB/month
+- **Custom domains**: Included
 
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Site collection dropped for site: your-site-id",
-  "site_id": "your-site-id"
-}
-```
+### Hugging Face (Free)
+- **Inference API**: Rate-limited but free
+- **Models**: Access to open-source embedding models
 
-## Text Processing Pipeline
+## Security Features
 
-### 1. Content Reconstruction
-- Handles chunked posts from WordPress plugin
-- Validates all chunks are present
-- Reconstructs full content from chunks
-
-### 2. Text Extraction
-- Removes HTML markup and unwanted elements
-- Extracts clean, natural language text
-- Preserves paragraph structure
-
-### 3. Intelligent Chunking
-- Default 1000 character chunks with 200 character overlap
-- Sentence boundary detection with abbreviation handling
-- Paragraph boundary preference
-- Complete sentence enforcement
-- Statistics tracking including sentence completeness
-
-### 4. Vector Embedding
-- Uses configurable embedding models
-- Batch processing for efficiency
-- Comprehensive logging and error handling
-
-## Data Structure
-
-### Site Collections
-Each site gets a dedicated Milvus collection with the following schema:
-
-- `pk_id`: Auto-generated primary key
-- `chunk_id`: Unique chunk identifier
-- `post_id`: WordPress post ID
-- `post_title`: Post title
-- `post_url`: Post URL
-- `site_id`: Site identifier
-- `site_name`: Site name
-- `site_url`: Site URL
-- `chunk_index`: Chunk position within post
-- `content`: Text content
-- `embedding`: 1024-dimensional vector
-
-### Collection Naming
-Collections are named using the pattern: `site_{sanitized_site_id}_chunks`
-
-Site IDs are sanitized by replacing non-alphanumeric characters with underscores.
-
-## Logging
-
-The system generates comprehensive logs for debugging and analysis:
-
-### Log Files
-- `embed-batch-request-{site_id}-{timestamp}.json`: Main request processing log
-- `chunks-{site_id}-{timestamp}.json`: Detailed chunking analysis
-- `embeddings-{site_id}-{timestamp}.json`: Embedding vectors and metadata
-
-### Log Content
-- Request metadata and processing statistics
-- Text extraction and chunking metrics
-- Embedding dimensions and vectors
-- Error tracking and performance metrics
-
-## Development
-
-The application supports hot-reloading for development:
-- Source code is mounted to `/app/src` in the container
-- Changes to TypeScript files automatically trigger recompilation
-- The Express server runs in development mode with `ts-node-dev`
-
-## Infrastructure Details
-
-### Docker Services
-- **express-app**: Main application service with Node.js 18
-- **milvus-standalone**: Vector database for semantic search
-- **minio**: Object storage service
-- **etcd**: Key-value store for Milvus metadata
-- **nginx** (production only): Reverse proxy and load balancer
-
-### Networking
-All services are connected through the `milvus-net` Docker network.
-
-### Persistence
-Data is persisted through Docker volumes:
-- `/volumes/milvus`: Milvus data
-- `/volumes/minio`: MinIO data
-- `/volumes/etcd`: etcd data
-- `./logs`: Application logs (mounted from host)
-
-## Error Handling
-
-The API provides detailed error responses:
-
-### Common Error Codes
-- `400`: Bad Request (missing parameters, invalid format)
-- `401`: Unauthorized (invalid JWT token)
-- `403`: Forbidden (invalid API key)
-- `404`: Not Found (site not embedded, no results)
-- `429`: Too Many Requests (rate limit exceeded)
-- `500`: Internal Server Error (processing failures)
-
-### Error Response Format
-```json
-{
-  "success": false,
-  "message": "Human-readable error message",
-  "error": "ERROR_CODE_OR_DETAILS"
-}
-```
-
-## Security
+### Data Protection
+- JWT-based authentication with secure tokens
+- API key validation for server access
+- Rate limiting on search endpoints
+- SQL injection prevention with Prisma
 
 ### Multi-Tenancy
 - Complete data isolation between sites
-- Site-specific collections prevent data leakage
-- Parameterized queries prevent injection attacks
+- User ownership validation
+- Secure file access with signed URLs
 
-### Authentication
-- JWT tokens for client authentication
-- API keys for server-to-server communication
-- Rate limiting to prevent abuse
+## Performance Optimizations
 
-### Input Validation
-- Request body validation
-- Site ID sanitization
-- Content size limits (50MB max)
+### Vector Search
+- Optimized pgvector queries with proper indexing
+- Configurable similarity thresholds
+- Batch processing for embedding generation
 
-## Performance
+### Caching
+- Prisma connection pooling
+- Static file serving via Supabase CDN
+- Client-side caching headers
 
-### Optimization Features
-- Batch processing for embeddings
-- Connection pooling for Milvus
-- Efficient chunking algorithms
-- Cosine similarity search with IVF_FLAT indexing
+## Development
 
-### Scaling Considerations
-- Each site collection scales independently
-- Horizontal scaling through multiple API instances
-- Milvus clustering for large deployments
+### Scripts
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run db:generate  # Generate Prisma client
+npm run db:push      # Push schema changes
+npm run db:studio    # Open database GUI
+```
 
-## Monitoring
+### Project Structure
+```
+src/
+├── controllers/     # Request handlers
+├── services/        # Business logic
+├── middleware/      # Auth, rate limiting
+├── routes/          # API routing
+├── types/           # TypeScript types
+└── config/          # Environment config
+```
 
-### Health Checks
-- Collection existence validation
-- Embedding service connectivity
-- Database connection status
+## Deployment
 
-### Metrics
-- Processing time per request
-- Chunk count per site
-- Search performance statistics
-- Error rates and types
+### Environment Variables (Vercel)
+Set these in your Vercel dashboard:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `SERVER_API_KEY`
+- `HUGGING_FACE_API_TOKEN`
 
----
+### Build Configuration
+The `vercel.json` file is preconfigured for:
+- TypeScript compilation
+- Prisma client generation
+- Serverless function optimization
 
-For detailed implementation specifics, refer to the source code in:
-- `/src/services/multiSiteVectorStore.ts`: Multi-site vector operations
-- `/src/services/textChunking.ts`: Text processing and chunking
-- `/src/controllers/embeddingController.ts`: API endpoint handlers
-- `/src/routes/embeddingRoutes.ts`: Route definitions
+## Support
+
+- **Documentation**: See `ENV_EXAMPLE.md` for setup details
+- **Database GUI**: Use `npm run db:studio`
+- **Logs**: Monitor via Vercel dashboard
+
+## License
+
+MIT License - see LICENSE file for details.

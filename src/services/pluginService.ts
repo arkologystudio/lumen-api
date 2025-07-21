@@ -1,11 +1,9 @@
 /**
  * Plugin Service
- * Handles plugin file storage, management, and operations
+ * Handles plugin file storage, management, and operations using Supabase Storage
  */
 
 import crypto from "crypto";
-import path from "path";
-import fs from "fs/promises";
 import { PrismaClient } from "@prisma/client";
 import {
   Plugin,
@@ -14,48 +12,27 @@ import {
   PluginStats,
   EcosystemProductWithPlugins,
 } from "../types";
+import {
+  initializeStorage,
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  fileExists,
+  generateSignedUrl,
+} from "./supabaseStorage";
 
 const prisma = new PrismaClient();
 
 // Configuration for plugin storage
-const PLUGINS_STORAGE_DIR = process.env.PLUGINS_STORAGE_DIR || "plugins";
 const MAX_FILE_SIZE =
   parseInt(process.env.MAX_PLUGIN_FILE_SIZE || "50") * 1024 * 1024; // 50MB default
 
 /**
- * Initialize plugin storage directory
+ * Initialize plugin storage (now using Supabase Storage)
  */
 export const initializePluginStorage = async (): Promise<void> => {
-  try {
-    await fs.access(PLUGINS_STORAGE_DIR);
-  } catch {
-    await fs.mkdir(PLUGINS_STORAGE_DIR, { recursive: true });
-    console.log(`Created plugin storage directory: ${PLUGINS_STORAGE_DIR}`);
-  }
-};
-
-/**
- * Generate SHA256 hash for file integrity
- */
-const generateFileHash = async (filePath: string): Promise<string> => {
-  const fileBuffer = await fs.readFile(filePath);
-  return crypto.createHash("sha256").update(fileBuffer).digest("hex");
-};
-
-/**
- * Generate secure file path for plugin storage
- */
-const generateSecureFilePath = (
-  originalFilename: string,
-  productSlug: string
-): string => {
-  const timestamp = Date.now();
-  const randomSuffix = crypto.randomBytes(8).toString("hex");
-  const extension = path.extname(originalFilename);
-  const baseName = path.basename(originalFilename, extension);
-
-  const secureFilename = `${productSlug}-${baseName}-${timestamp}-${randomSuffix}${extension}`;
-  return path.join(PLUGINS_STORAGE_DIR, secureFilename);
+  await initializeStorage();
+  console.log("Plugin storage initialized with Supabase Storage");
 };
 
 /**
@@ -101,18 +78,14 @@ export const createPlugin = async (
     );
   }
 
-  // Initialize storage directory
-  await initializePluginStorage();
-
-  // Generate secure file path
-  const filePath = generateSecureFilePath(originalFilename, product.slug);
-
   try {
-    // Write file to storage
-    await fs.writeFile(filePath, fileBuffer);
-
-    // Generate file hash for integrity
-    const fileHash = await generateFileHash(filePath);
+    // Upload file to Supabase Storage
+    const { filePath, fileSize, fileHash } = await uploadFile(
+      fileBuffer,
+      originalFilename,
+      product.slug,
+      content_type
+    );
 
     // Create plugin record in database
     const prismaPlugin = await prisma.plugin.create({
@@ -123,7 +96,7 @@ export const createPlugin = async (
         version,
         description,
         file_path: filePath,
-        file_size: fileBuffer.length,
+        file_size: fileSize,
         file_hash: fileHash,
         content_type,
         is_active: true,
@@ -139,12 +112,7 @@ export const createPlugin = async (
 
     return mapPrismaPluginToPlugin(prismaPlugin);
   } catch (error) {
-    // Clean up file if database operation fails
-    try {
-      await fs.unlink(filePath);
-    } catch (cleanupError) {
-      console.error("Failed to clean up file after error:", cleanupError);
-    }
+    console.error("Failed to create plugin:", error);
     throw error;
   }
 };
@@ -279,24 +247,20 @@ export const updatePluginFile = async (
     );
   }
 
-  // Generate new secure file path
-  const newFilePath = generateSecureFilePath(
-    originalFilename,
-    plugin.product?.slug || "unknown"
-  );
-
   try {
-    // Write new file to storage
-    await fs.writeFile(newFilePath, fileBuffer);
-
-    // Generate new file hash
-    const newFileHash = await generateFileHash(newFilePath);
+    // Upload new file to Supabase Storage
+    const { filePath, fileSize, fileHash } = await uploadFile(
+      fileBuffer,
+      originalFilename,
+      plugin.product?.slug || "unknown",
+      plugin.content_type
+    );
 
     // Update plugin record
     const updateData: any = {
-      file_path: newFilePath,
-      file_size: fileBuffer.length,
-      file_hash: newFileHash,
+      file_path: filePath,
+      file_size: fileSize,
+      file_hash: fileHash,
       filename: originalFilename,
     };
 
@@ -312,21 +276,16 @@ export const updatePluginFile = async (
       },
     });
 
-    // Clean up old file
+    // Clean up old file from Supabase Storage
     try {
-      await fs.unlink(plugin.file_path);
+      await deleteFile(plugin.file_path);
     } catch (cleanupError) {
       console.error("Failed to clean up old file:", cleanupError);
     }
 
     return mapPrismaPluginToPlugin(updatedPlugin);
   } catch (error) {
-    // Clean up new file if database operation fails
-    try {
-      await fs.unlink(newFilePath);
-    } catch (cleanupError) {
-      console.error("Failed to clean up new file after error:", cleanupError);
-    }
+    console.error("Failed to update plugin file:", error);
     throw error;
   }
 };
@@ -343,7 +302,7 @@ export const deletePlugin = async (pluginId: string): Promise<void> => {
   // Check if plugin has active licenses
   const activeLicenseCount = await prisma.license.count({
     where: {
-      plugin_id: pluginId,
+      product_id: plugin.product_id,
       status: "active",
     },
   });
@@ -359,9 +318,9 @@ export const deletePlugin = async (pluginId: string): Promise<void> => {
     where: { id: pluginId },
   });
 
-  // Clean up file
+  // Clean up file from Supabase Storage
   try {
-    await fs.unlink(plugin.file_path);
+    await deleteFile(plugin.file_path);
   } catch (cleanupError) {
     console.error("Failed to clean up plugin file:", cleanupError);
   }
@@ -379,7 +338,16 @@ export const verifyPluginIntegrity = async (
   }
 
   try {
-    const currentHash = await generateFileHash(plugin.file_path);
+    // Check if file exists in Supabase Storage
+    const exists = await fileExists(plugin.file_path);
+    if (!exists) {
+      return false;
+    }
+
+    // Download file and verify hash
+    const { buffer } = await downloadFile(plugin.file_path);
+    const currentHash = crypto.createHash('sha256').update(buffer).digest('hex');
+    
     return currentHash === plugin.file_hash;
   } catch (error) {
     console.error("Error verifying plugin integrity:", error);
@@ -388,12 +356,12 @@ export const verifyPluginIntegrity = async (
 };
 
 /**
- * Get plugin file stream for download
+ * Get plugin file download URL
  */
-export const getPluginFileStream = async (
+export const getPluginDownloadUrl = async (
   pluginId: string
 ): Promise<{
-  stream: NodeJS.ReadableStream;
+  downloadUrl: string;
   plugin: Plugin;
 }> => {
   const plugin = await getPluginById(pluginId);
@@ -406,19 +374,55 @@ export const getPluginFileStream = async (
   }
 
   try {
-    // Verify file exists
-    await fs.access(plugin.file_path);
+    // Verify file exists and integrity
+    const isIntegrityValid = await verifyPluginIntegrity(pluginId);
+    if (!isIntegrityValid) {
+      throw new Error("Plugin file integrity check failed");
+    }
 
+    // Generate signed URL for download (expires in 1 hour)
+    const downloadUrl = await generateSignedUrl(plugin.file_path, 3600);
+
+    return { downloadUrl, plugin };
+  } catch (error) {
+    throw new Error(
+      `Failed to generate download URL: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`
+    );
+  }
+};
+
+/**
+ * Get plugin file buffer for direct download
+ */
+export const getPluginFileBuffer = async (
+  pluginId: string
+): Promise<{
+  buffer: Buffer;
+  plugin: Plugin;
+  contentType?: string;
+}> => {
+  const plugin = await getPluginById(pluginId);
+  if (!plugin) {
+    throw new Error("Plugin not found");
+  }
+
+  if (!plugin.is_active) {
+    throw new Error("Plugin is not active");
+  }
+
+  try {
     // Verify file integrity
     const isIntegrityValid = await verifyPluginIntegrity(pluginId);
     if (!isIntegrityValid) {
       throw new Error("Plugin file integrity check failed");
     }
 
-    const fs_sync = require("fs");
-    const stream = fs_sync.createReadStream(plugin.file_path);
+    // Download file from Supabase Storage
+    const { buffer, contentType } = await downloadFile(plugin.file_path);
 
-    return { stream, plugin };
+    return { buffer, plugin, contentType };
   } catch (error) {
     throw new Error(
       `Failed to access plugin file: ${
@@ -437,19 +441,19 @@ export const getPluginStats = async (
   // Get total downloads
   const totalDownloads = await prisma.download.count({
     where: {
-      plugin_id: pluginId,
+      product_id: pluginId,
       status: "completed",
     },
   });
 
   // Get license counts
   const totalLicenses = await prisma.license.count({
-    where: { plugin_id: pluginId },
+    where: { product_id: pluginId },
   });
 
   const activeLicenses = await prisma.license.count({
     where: {
-      plugin_id: pluginId,
+      product_id: pluginId,
       status: "active",
     },
   });
@@ -461,7 +465,7 @@ export const getPluginStats = async (
   const downloadTrend = await prisma.download.groupBy({
     by: ["started_at"],
     where: {
-      plugin_id: pluginId,
+      product_id: pluginId,
       status: "completed",
       started_at: {
         gte: thirtyDaysAgo,
@@ -523,6 +527,7 @@ export const getProductWithPlugins = async (
     created_at: product.created_at.toISOString(),
     updated_at: product.updated_at.toISOString(),
     plugins: product.plugins.map(mapPrismaPluginToPlugin),
+    pricing_tiers: [], // TODO: Add pricing tiers if needed
     has_downloadable_content: product.plugins.length > 0,
   };
 };

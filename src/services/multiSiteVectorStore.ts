@@ -1,12 +1,11 @@
 /**
- * Multi-site vector store service for managing separate collections per site
+ * Multi-site vector store service for managing site-specific embeddings in PostgreSQL
  */
 
 import { embedText } from "./embedding";
 import { TextChunk } from "./textChunking";
 import { SiteConfig } from "../types/wordpress";
-import { FeatureExtractionOutput } from "@huggingface/inference";
-import { MilvusClient, DataType } from "@zilliz/milvus2-sdk-node";
+import { PrismaClient } from "@prisma/client";
 import { ENV } from "../config/env";
 
 interface StoredPostChunk {
@@ -40,21 +39,13 @@ interface PostSearchResult {
   }>;
 }
 
-// Initialize Milvus client
-console.log(
-  "Initializing Milvus client for multi-site with address:",
-  ENV.MILVUS_ADDRESS || "standalone:19530"
-);
+// Initialize Prisma client
+console.log("Initializing Prisma client for multi-site vector store");
 
-const milvusClient = new MilvusClient({
-  address: ENV.MILVUS_ADDRESS || "standalone:19530",
-  username: ENV.MILVUS_USERNAME || "",
-  password: ENV.MILVUS_PASSWORD || "",
-  timeout: 60000, // 60 seconds
-});
+const prisma = new PrismaClient();
 
 /**
- * Generate collection name for a site
+ * Generate collection name for a site (for compatibility)
  */
 const getCollectionName = (siteId: string): string => {
   // Sanitize site ID for collection name (alphanumeric and underscores only)
@@ -65,22 +56,9 @@ const getCollectionName = (siteId: string): string => {
 /**
  * Convert embedding output to number array
  */
-const convertToNumberArray = (embedding: FeatureExtractionOutput): number[] => {
-  if (typeof embedding === "number") {
-    return [embedding];
-  }
-
+const convertToNumberArray = (embedding: number[]): number[] => {
   if (Array.isArray(embedding)) {
     if (embedding.length === 0) {
-      return [];
-    }
-
-    // Check if it's a 2D array by checking first element
-    if (Array.isArray(embedding[0])) {
-      // Verify all elements in first row are numbers
-      if (embedding[0].every((item) => typeof item === "number")) {
-        return embedding[0];
-      }
       return [];
     }
 
@@ -94,125 +72,12 @@ const convertToNumberArray = (embedding: FeatureExtractionOutput): number[] => {
 };
 
 /**
- * Create collection schema for site chunks
- */
-const createCollectionSchema = () => [
-  {
-    name: "pk_id",
-    description: "Primary Key",
-    data_type: DataType.Int64,
-    is_primary_key: true,
-    autoID: true,
-  },
-  {
-    name: "chunk_id",
-    description: "Chunk ID field",
-    data_type: DataType.VarChar,
-    max_length: 128,
-  },
-  {
-    name: "post_id",
-    description: "Post ID field",
-    data_type: DataType.Int64,
-    autoID: false,
-  },
-  {
-    name: "post_title",
-    description: "Post title field",
-    data_type: DataType.VarChar,
-    max_length: 512,
-  },
-  {
-    name: "post_url",
-    description: "Post URL field",
-    data_type: DataType.VarChar,
-    max_length: 512,
-  },
-  {
-    name: "site_id",
-    description: "Site ID field",
-    data_type: DataType.VarChar,
-    max_length: 128,
-  },
-  {
-    name: "site_name",
-    description: "Site name field",
-    data_type: DataType.VarChar,
-    max_length: 256,
-  },
-  {
-    name: "site_url",
-    description: "Site URL field",
-    data_type: DataType.VarChar,
-    max_length: 512,
-  },
-  {
-    name: "chunk_index",
-    description: "Chunk index within post",
-    data_type: DataType.Int64,
-    autoID: false,
-  },
-  {
-    name: "content",
-    description: "Chunk content field",
-    data_type: DataType.VarChar,
-    max_length: 65535,
-  },
-  {
-    name: "embedding",
-    description: "Vector field",
-    data_type: DataType.FloatVector,
-    dim: 1024, // Adjust if your actual embedding dimension is different
-  },
-];
-
-/**
- * Initialize collection for a specific site
+ * Initialize collection for a specific site (no-op for PostgreSQL)
  */
 export const initSiteCollection = async (siteId: string): Promise<string> => {
   const collectionName = getCollectionName(siteId);
-
-  try {
-    // Check if the collection already exists
-    const hasCollection = await milvusClient.hasCollection({
-      collection_name: collectionName,
-    });
-
-    // If it doesn't exist, create one
-    if (!hasCollection.value) {
-      await milvusClient.createCollection({
-        collection_name: collectionName,
-        fields: createCollectionSchema(),
-      });
-
-      // Create an index for vector search
-      await milvusClient.createIndex({
-        collection_name: collectionName,
-        field_name: "embedding",
-        index_type: "IVF_FLAT",
-        metric_type: "COSINE", // Using cosine similarity
-        params: { nlist: 1024 },
-      });
-
-      // Load collection into memory
-      await milvusClient.loadCollection({
-        collection_name: collectionName,
-      });
-
-      console.log(`Created and loaded collection: ${collectionName}`);
-    } else {
-      // Ensure collection is loaded
-      await milvusClient.loadCollection({
-        collection_name: collectionName,
-      });
-      console.log(`Collection already exists and loaded: ${collectionName}`);
-    }
-
-    return collectionName;
-  } catch (error) {
-    console.error(`Failed to initialize collection for site ${siteId}:`, error);
-    throw error;
-  }
+  console.log(`Site ${siteId} chunks managed via PostgreSQL PostChunk table`);
+  return collectionName;
 };
 
 /**
@@ -228,7 +93,6 @@ export const upsertSiteChunks = async (
     return;
   }
 
-  const collectionName = await initSiteCollection(siteId);
   console.log(`Upserting ${chunks.length} chunks for site ${siteId}`);
 
   const embeddingsLog: Array<{
@@ -247,7 +111,6 @@ export const upsertSiteChunks = async (
       )}`
     );
 
-    const batchData = [];
     for (const chunk of batch) {
       try {
         // Get embedding for the chunk content
@@ -270,49 +133,38 @@ export const upsertSiteChunks = async (
           });
         }
 
-        batchData.push({
-          chunk_id: chunk.id,
-          post_id: chunk.postId,
-          post_title: chunk.postTitle,
-          post_url: chunk.postUrl,
-          site_id: chunk.siteId,
-          site_name: chunk.siteName || "",
-          site_url: chunk.siteUrl || "",
-          chunk_index: chunk.chunkIndex,
-          content: chunk.content,
-          embedding: embedding,
+        // Convert embedding array to PostgreSQL vector format
+        const embeddingVector = `[${embedding.join(",")}]`;
+
+        // Upsert chunk using Prisma
+        await prisma.postChunk.upsert({
+          where: {
+            chunk_id: chunk.id,
+          },
+          update: {
+            post_title: chunk.postTitle,
+            post_url: chunk.postUrl,
+            chunk_index: chunk.chunkIndex,
+            content: chunk.content,
+            embedding: embeddingVector as any, // Cast to any for Unsupported type
+            updated_at: new Date(),
+          },
+          create: {
+            chunk_id: chunk.id,
+            site_id: siteId,
+            post_id: chunk.postId,
+            post_title: chunk.postTitle,
+            post_url: chunk.postUrl,
+            chunk_index: chunk.chunkIndex,
+            content: chunk.content,
+            embedding: embeddingVector as any, // Cast to any for Unsupported type
+          },
         });
+
+        console.log(`Successfully upserted chunk ${chunk.id}`);
       } catch (error) {
         console.error(`Failed to embed chunk ${chunk.id}:`, error);
         continue; // Skip this chunk rather than failing the whole process
-      }
-    }
-
-    if (batchData.length > 0) {
-      try {
-        const insertResult = await milvusClient.insert({
-          collection_name: collectionName,
-          data: batchData,
-        });
-
-        if (insertResult.err_index && insertResult.err_index.length > 0) {
-          console.error(
-            "Insert errors:",
-            insertResult.status?.reason || "Unknown error"
-          );
-          throw new Error(
-            `Failed to insert data: ${
-              insertResult.status?.reason || "Unknown error"
-            }`
-          );
-        }
-
-        console.log(
-          `Successfully inserted batch of ${batchData.length} chunks`
-        );
-      } catch (dbError) {
-        console.error("Database operation failed:", dbError);
-        throw dbError;
       }
     }
   }
@@ -352,8 +204,6 @@ export const upsertSiteChunks = async (
     console.log(`Embeddings data written to: ${embeddingsFilePath}`);
   }
 
-  // Flush collection to ensure all data is persisted
-  await flushSiteCollection(siteId);
   console.log(
     `Completed batch upsert of ${chunks.length} chunks for site ${siteId}`
   );
@@ -377,103 +227,117 @@ export const querySimilarSitePosts = async (
     threshold
   );
 
-  const collectionName = await initSiteCollection(siteId);
-
   // Embed the incoming query
   const queryEmbeddingResult = await embedText(query);
-  const queryEmbedding = convertToNumberArray(queryEmbeddingResult);
+  const queryEmbedding = `[${queryEmbeddingResult.join(",")}]`;
   console.log("Query embedding success");
 
-  // Search with COSINE similarity (higher = more similar)
-  const searchResults = await milvusClient.search({
-    collection_name: collectionName,
-    vectors: [queryEmbedding],
-    search_params: {
-      anns_field: "embedding",
-      topk: topK,
-      params: JSON.stringify({ nprobe: 10 }),
-      index_type: "IVF_FLAT",
-      metric_type: "COSINE",
-    },
-    output_fields: [
-      "chunk_id",
-      "post_id",
-      "post_title",
-      "post_url",
-      "site_id",
-      "site_name",
-      "site_url",
-      "chunk_index",
-      "content",
-    ],
-  });
+  try {
+    // Use raw SQL for vector similarity search with pgvector
+    const searchResults = await prisma.$queryRaw<Array<{
+      id: string;
+      chunk_id: string;
+      post_id: number;
+      post_title: string;
+      post_url: string;
+      site_id: string;
+      chunk_index: number;
+      content: string;
+      similarity: number;
+    }>>`
+      SELECT 
+        id,
+        chunk_id,
+        post_id,
+        post_title,
+        post_url,
+        site_id,
+        chunk_index,
+        content,
+        (1 - (embedding <=> ${queryEmbedding}::vector)) as similarity
+      FROM post_chunks 
+      WHERE site_id = ${siteId}
+        AND embedding IS NOT NULL
+        AND (1 - (embedding <=> ${queryEmbedding}::vector)) >= ${threshold}
+      ORDER BY embedding <=> ${queryEmbedding}::vector
+      LIMIT ${topK}
+    `;
 
-  console.log("Search results", searchResults);
+    console.log("Search results", searchResults);
 
-  // Filter out any results whose similarity is below our threshold
-  const filteredResults = searchResults.results.filter(
-    (r) => r.score >= threshold
-  );
-
-  // If no results pass the threshold, return an empty array
-  if (filteredResults.length === 0) {
-    console.log("No search results above threshold, returning []");
-    return [];
-  }
-
-  // Group results by post ID
-  const postGroups = new Map<number, StoredPostChunk[]>();
-
-  filteredResults.forEach((result) => {
-    const chunk: StoredPostChunk = {
-      id: result.chunk_id,
-      postId: result.post_id,
-      postTitle: result.post_title,
-      postUrl: result.post_url,
-      siteId: result.site_id,
-      siteName: result.site_name,
-      siteUrl: result.site_url,
-      chunkIndex: result.chunk_index,
-      content: result.content,
-      score: result.score,
-    };
-
-    if (!postGroups.has(chunk.postId)) {
-      postGroups.set(chunk.postId, []);
+    // If no results pass the threshold, return an empty array
+    if (searchResults.length === 0) {
+      console.log("No search results above threshold, returning []");
+      return [];
     }
-    postGroups.get(chunk.postId)!.push(chunk);
-  });
 
-  // Convert grouped results to PostSearchResult format
-  const results: PostSearchResult[] = Array.from(postGroups.entries()).map(
-    ([postId, chunks]) => {
-      const sortedChunks = chunks.sort((a, b) => b.score - a.score);
-      const totalScore = chunks.reduce((sum, chunk) => sum + chunk.score, 0);
-      const averageScore = totalScore / chunks.length;
-      const maxScore = Math.max(...chunks.map((chunk) => chunk.score));
+    // Group results by post ID
+    const postGroups = new Map<number, StoredPostChunk[]>();
 
-      return {
-        postId,
-        postTitle: chunks[0].postTitle,
-        postUrl: chunks[0].postUrl,
-        siteId: chunks[0].siteId,
-        siteName: chunks[0].siteName,
-        siteUrl: chunks[0].siteUrl,
-        averageScore: Math.round(averageScore * 1000) / 1000,
-        maxScore: Math.round(maxScore * 1000) / 1000,
-        totalChunks: chunks.length,
-        chunks: sortedChunks.map((chunk) => ({
-          chunkId: chunk.id,
-          chunkIndex: chunk.chunkIndex,
-          content: chunk.content,
-          score: Math.round(chunk.score * 1000) / 1000,
-        })),
+    searchResults.forEach((result: {
+      id: string;
+      chunk_id: string;
+      post_id: number;
+      post_title: string;
+      post_url: string;
+      site_id: string;
+      chunk_index: number;
+      content: string;
+      similarity: number;
+    }) => {
+      const chunk: StoredPostChunk = {
+        id: result.chunk_id,
+        postId: result.post_id,
+        postTitle: result.post_title,
+        postUrl: result.post_url,
+        siteId: result.site_id,
+        siteName: undefined, // Would need to join with Site table if needed
+        siteUrl: undefined, // Would need to join with Site table if needed
+        chunkIndex: result.chunk_index,
+        content: result.content,
+        score: result.similarity,
       };
-    }
-  );
 
-  // Sort by max score descending
-  return results.sort((a, b) => b.maxScore - a.maxScore);
+      if (!postGroups.has(chunk.postId)) {
+        postGroups.set(chunk.postId, []);
+      }
+      postGroups.get(chunk.postId)!.push(chunk);
+    });
+
+    // Convert grouped results to PostSearchResult format
+    const results: PostSearchResult[] = Array.from(postGroups.entries()).map(
+      ([postId, chunks]) => {
+        const sortedChunks = chunks.sort((a, b) => b.score - a.score);
+        const totalScore = chunks.reduce((sum, chunk) => sum + chunk.score, 0);
+        const averageScore = totalScore / chunks.length;
+        const maxScore = Math.max(...chunks.map((chunk) => chunk.score));
+
+        return {
+          postId,
+          postTitle: chunks[0].postTitle,
+          postUrl: chunks[0].postUrl,
+          siteId: chunks[0].siteId,
+          siteName: chunks[0].siteName,
+          siteUrl: chunks[0].siteUrl,
+          averageScore: Math.round(averageScore * 1000) / 1000,
+          maxScore: Math.round(maxScore * 1000) / 1000,
+          totalChunks: chunks.length,
+          chunks: sortedChunks.map((chunk) => ({
+            chunkId: chunk.id,
+            chunkIndex: chunk.chunkIndex,
+            content: chunk.content,
+            score: Math.round(chunk.score * 1000) / 1000,
+          })),
+        };
+      }
+    );
+
+    // Sort by max score descending
+    return results.sort((a, b) => b.maxScore - a.maxScore);
+  } catch (error) {
+    console.error(`Error querying similar posts for site ${siteId}:`, error);
+    throw error;
+  }
 };
 
 /**
@@ -481,31 +345,18 @@ export const querySimilarSitePosts = async (
  */
 export const getSiteChunksCount = async (siteId: string): Promise<number> => {
   try {
-    const collectionName = getCollectionName(siteId);
     console.log(`Getting chunk count for site ${siteId}`);
 
-    // Check if collection exists
-    const exists = await milvusClient.hasCollection({
-      collection_name: collectionName,
+    const count = await prisma.postChunk.count({
+      where: {
+        site_id: siteId,
+        embedding: {
+          not: null,
+        },
+      },
     });
 
-    if (!exists.value) {
-      return 0;
-    }
-
-    // Ensure all inserted data is flushed
-    await milvusClient.flush({
-      collection_names: [collectionName],
-    });
-
-    // Get statistics
-    const stats = await milvusClient.getCollectionStatistics({
-      collection_name: collectionName,
-    });
-
-    const rowCount =
-      stats.stats.find((stat) => stat.key === "row_count")?.value || "0";
-    return parseInt(rowCount.toString());
+    return count;
   } catch (error) {
     console.error(`Error getting chunk count for site ${siteId}:`, error);
     return 0;
@@ -517,41 +368,24 @@ export const getSiteChunksCount = async (siteId: string): Promise<number> => {
  */
 export const dropSiteCollection = async (siteId: string): Promise<void> => {
   try {
-    const collectionName = getCollectionName(siteId);
-    await milvusClient.dropCollection({ collection_name: collectionName });
-    console.log(`Collection dropped for site ${siteId}: ${collectionName}`);
+    await prisma.postChunk.deleteMany({
+      where: {
+        site_id: siteId,
+      },
+    });
+    console.log(`Post chunks deleted for site ${siteId}`);
   } catch (error) {
-    console.error(`Failed to drop collection for site ${siteId}:`, error);
+    console.error(`Failed to delete post chunks for site ${siteId}:`, error);
     throw error;
   }
 };
 
 /**
- * Flush collection for a specific site
+ * Flush collection for a specific site (no-op for PostgreSQL)
  */
 export const flushSiteCollection = async (siteId: string): Promise<void> => {
-  try {
-    const collectionName = getCollectionName(siteId);
-    console.log(`Flushing collection for site ${siteId}: ${collectionName}`);
-    const flushResult = await milvusClient.flush({
-      collection_names: [collectionName],
-    });
-
-    if (
-      flushResult.status?.code !== 0 &&
-      flushResult.status?.code !== undefined
-    ) {
-      console.warn(
-        "Flush warning:",
-        flushResult.status?.reason || "Unknown warning"
-      );
-    } else {
-      console.log(`Flush completed successfully for site ${siteId}`);
-    }
-  } catch (flushError) {
-    console.warn(`Flush operation failed for site ${siteId}:`, flushError);
-    throw flushError;
-  }
+  console.log(`PostgreSQL auto-commits, no manual flush needed for site ${siteId}`);
+  // No-op - PostgreSQL auto-commits transactions
 };
 
 /**
@@ -559,27 +393,40 @@ export const flushSiteCollection = async (siteId: string): Promise<void> => {
  */
 export const listSiteCollections = async (): Promise<SiteConfig[]> => {
   try {
-    const collections = await milvusClient.listCollections();
+    // Get unique sites from post_chunks table with chunk counts
+    const sitesWithChunks = await prisma.postChunk.groupBy({
+      by: ['site_id'],
+      _count: {
+        id: true,
+      },
+      where: {
+        embedding: {
+          not: null,
+        },
+      },
+    });
+
     const siteCollections: SiteConfig[] = [];
 
-    for (const collection of collections.data) {
-      // Check if this is a site collection (starts with "site_" and ends with "_chunks")
-      const collectionName = collection.name;
-      const match = collectionName.match(/^site_(.+)_chunks$/);
-      if (match) {
-        const siteId = match[1].replace(/_/g, "-"); // Convert back from sanitized format
-        const count = await getSiteChunksCount(siteId);
+    for (const siteData of sitesWithChunks) {
+      const siteId = siteData.site_id;
+      const chunkCount = siteData._count.id;
 
-        siteCollections.push({
-          site_id: siteId,
-          site_name: siteId, // We don't store site name in collection, so use ID
-          site_url: "", // We don't store site URL in collection
-          collection_name: collectionName,
-          created_at: new Date().toISOString(), // We don't track creation time
-          updated_at: new Date().toISOString(), // We don't track update time
-          chunk_count: count,
-        });
-      }
+      // Try to get site details from the Site table
+      const siteDetails = await prisma.site.findUnique({
+        where: { id: siteId },
+        select: { name: true, url: true, created_at: true, updated_at: true },
+      });
+
+      siteCollections.push({
+        site_id: siteId,
+        site_name: siteDetails?.name || siteId,
+        site_url: siteDetails?.url || "",
+        collection_name: getCollectionName(siteId),
+        created_at: siteDetails?.created_at?.toISOString() || new Date().toISOString(),
+        updated_at: siteDetails?.updated_at?.toISOString() || new Date().toISOString(),
+        chunk_count: chunkCount,
+      });
     }
 
     return siteCollections;
@@ -603,17 +450,13 @@ export const getSiteStats = async (
   const collectionName = getCollectionName(siteId);
 
   try {
-    const exists = await milvusClient.hasCollection({
-      collection_name: collectionName,
-    });
-
-    const chunkCount = exists.value ? await getSiteChunksCount(siteId) : 0;
+    const chunkCount = await getSiteChunksCount(siteId);
 
     return {
       siteId,
       collectionName,
       chunkCount,
-      exists: Boolean(exists.value),
+      exists: chunkCount > 0,
     };
   } catch (error) {
     console.error(`Error getting stats for site ${siteId}:`, error);
