@@ -10,7 +10,7 @@ import {
   UnifiedSearchResult,
   PostSearchResult,
   ProductSearchResult,
-  SearchFilters,
+
 } from "../types";
 
 /**

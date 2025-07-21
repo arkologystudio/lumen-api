@@ -11,6 +11,7 @@ This API provides a comprehensive neural search solution for websites with prope
 - **Scalable**: Multi-tenant architecture with isolated vector collections
 - **Functional**: Following functional programming principles
 - **Type-safe**: Strong TypeScript typing throughout
+- **Unified Product Model**: Products can include both SaaS features and downloadable content
 
 ## API Endpoints
 
@@ -156,6 +157,44 @@ Embed content for a site.
     siteId: string;
     // ... additional stats
   };
+}
+```
+
+### 🏢 Products (`/api/products`)
+*Public endpoints for browsing products*
+
+#### GET `/api/products`
+Get all available products.
+```typescript
+// Query parameters
+?category=search  // Optional: filter by category
+
+// Response
+{
+  success: boolean;
+  products: Product[];
+  total: number;
+}
+```
+
+#### GET `/api/products/:slug`
+Get specific product details.
+```typescript
+// Response
+{
+  success: boolean;
+  product: Product;
+}
+```
+
+#### GET `/api/categories`
+Get available product categories.
+```typescript
+// Response
+{
+  success: boolean;
+  categories: string[];
+  total: number;
 }
 ```
 
@@ -793,9 +832,9 @@ interface Site {
 }
 ```
 
-### EcosystemProduct
+### Product (Unified from EcosystemProduct and Plugin)
 ```typescript
-interface EcosystemProduct {
+interface Product {
   id: string;
   name: string;
   slug: string;
@@ -806,8 +845,23 @@ interface EcosystemProduct {
   is_beta: boolean;
   base_price?: number;
   usage_based: boolean;
-  features: string[];
-  limits: Record<string, any>;
+  features?: string[];
+  limits?: Record<string, any>;
+  extended_documentation?: string;
+  
+  // File information (for downloadable products)
+  filename?: string;
+  file_path?: string;
+  file_size?: number;
+  file_hash?: string;
+  content_type?: string;
+  is_public?: boolean;
+  
+  // Release information
+  release_notes?: string;
+  changelog?: string;
+  max_downloads?: number;
+  
   created_at: string;
   updated_at: string;
 }
@@ -828,30 +882,7 @@ interface SiteProduct {
   usage_count: number;
   created_at: string;
   updated_at: string;
-  product?: EcosystemProduct;
-}
-```
-
-### Plugin
-```typescript
-interface Plugin {
-  id: string;
-  product_id: string;
-  name: string;
-  filename: string;
-  file_path: string;
-  file_size: number;
-  file_hash: string;
-  content_type: string;
-  version: string;
-  is_active: boolean;
-  is_public: boolean;
-  release_notes?: string;
-  changelog?: string;
-  max_downloads?: number;
-  created_at: string;
-  updated_at: string;
-  product?: EcosystemProduct;
+  product?: Product;
 }
 ```
 
@@ -874,7 +905,7 @@ interface License {
   created_at: string;
   updated_at: string;
   user?: User;
-  product?: EcosystemProduct;
+  product?: Product;
 }
 ```
 
@@ -884,7 +915,7 @@ interface Download {
   id: string;
   user_id: string;
   license_id: string;
-  plugin_id: string;
+  product_id: string;
   download_token: string;
   token_expires: string;
   ip_address?: string;
@@ -896,7 +927,7 @@ interface Download {
   completed_at?: string;
   user?: User;
   license?: License;
-  plugin?: Plugin;
+  product?: Product;
 }
 ```
 

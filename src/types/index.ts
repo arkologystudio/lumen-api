@@ -324,8 +324,8 @@ export interface PostSearchResult {
 
 export type UnifiedSearchResult = ProductSearchResult | PostSearchResult;
 
-// Ecosystem Products (SaaS offerings)
-export interface EcosystemProduct {
+// Products (unified from EcosystemProduct and Plugin)
+export interface Product {
   id: string;
   name: string;
   slug: string;
@@ -339,6 +339,20 @@ export interface EcosystemProduct {
   features?: string[];
   limits?: Record<string, any>;
   extended_documentation?: string;
+  
+  // File information (for downloadable products)
+  filename?: string;
+  file_path?: string;
+  file_size?: number;
+  file_hash?: string;
+  content_type?: string;
+  is_public?: boolean;
+  
+  // Release information
+  release_notes?: string;
+  changelog?: string;
+  max_downloads?: number;
+  
   created_at: string;
   updated_at: string;
 }
@@ -356,7 +370,7 @@ export interface SiteProduct {
   usage_count: number;
   created_at: string;
   updated_at: string;
-  product?: EcosystemProduct;
+  product?: Product;
 }
 
 export interface SiteWithProducts extends Site {
@@ -376,7 +390,7 @@ export interface UpdateSiteProductRequest {
 }
 
 export interface SiteProductsResponse {
-  products: (SiteProduct & { product: EcosystemProduct })[];
+  products: (SiteProduct & { product: Product })[];
   total: number;
 }
 
@@ -418,27 +432,6 @@ export interface ActivityLogResponse {
 }
 
 // Plugin Licensing Types
-export interface Plugin {
-  id: string;
-  product_id: string;
-  name: string;
-  filename: string;
-  version: string;
-  description?: string;
-  file_path: string;
-  file_size: number;
-  file_hash: string;
-  content_type: string;
-  is_active: boolean;
-  is_public: boolean;
-  release_notes?: string;
-  changelog?: string;
-  max_downloads?: number;
-  created_at: string;
-  updated_at: string;
-  product?: EcosystemProduct;
-}
-
 export interface License {
   id: string;
   user_id: string;
@@ -483,7 +476,7 @@ export interface License {
 
   // Relationships
   user?: User;
-  product?: EcosystemProduct;
+  product?: Product;
   query_usage?: QueryUsage[];
 }
 
@@ -506,7 +499,7 @@ export interface Download {
   metadata?: Record<string, any>;
   created_at: string;
   user?: User;
-  product?: EcosystemProduct;
+  product?: Product;
   license?: License;
 }
 
@@ -575,16 +568,26 @@ export interface PricingTier {
   updated_at: string;
 
   // Relationships
-  product?: EcosystemProduct;
+  product?: Product;
 }
 
-// Plugin Management Request/Response Types
-export interface CreatePluginRequest {
-  product_id: string;
+// Plugin Management Request/Response Types (now merged into Product)
+export interface CreateProductRequest {
   name: string;
-  filename: string;
+  slug: string;
+  description: string;
+  category: string;
   version?: string;
-  description?: string;
+  is_active?: boolean;
+  is_beta?: boolean;
+  base_price?: number;
+  usage_based?: boolean;
+  features?: string[];
+  limits?: Record<string, any>;
+  extended_documentation?: string;
+  
+  // File information (for downloadable products)
+  filename?: string;
   content_type?: string;
   is_public?: boolean;
   release_notes?: string;
@@ -592,11 +595,17 @@ export interface CreatePluginRequest {
   max_downloads?: number;
 }
 
-export interface UpdatePluginRequest {
+export interface UpdateProductRequest {
   name?: string;
-  version?: string;
   description?: string;
+  version?: string;
   is_active?: boolean;
+  is_beta?: boolean;
+  base_price?: number;
+  usage_based?: boolean;
+  features?: string[];
+  limits?: Record<string, any>;
+  extended_documentation?: string;
   is_public?: boolean;
   release_notes?: string;
   changelog?: string;
@@ -669,7 +678,7 @@ export interface PurchaseResponse {
   success: boolean;
   purchase: {
     purchase_reference: string;
-    product: EcosystemProduct;
+    product: Product;
     license: License;
     pricing_tier: PricingTier;
   };
@@ -713,7 +722,7 @@ export interface GiftLicenseRequest {
 }
 
 // Plugin and License Statistics Types
-export interface PluginStats {
+export interface ProductStats {
   total_downloads: number;
   active_licenses: number;
   total_licenses: number;
@@ -735,14 +744,8 @@ export interface UserLicenseStats {
   licenses_by_status: Record<LicenseStatus, number>;
 }
 
-// Extended Product types with Plugin and Pricing information
-export interface EcosystemProductWithPlugins extends EcosystemProduct {
-  plugins: Plugin[];
-  pricing_tiers: PricingTier[];
-  has_downloadable_content: boolean;
-}
-
-export interface EcosystemProductWithPricing extends EcosystemProduct {
+// Extended Product types with Pricing information
+export interface ProductWithPricing extends Product {
   pricing_tiers: PricingTier[];
   has_license: boolean;
   license_status?: LicenseStatus;

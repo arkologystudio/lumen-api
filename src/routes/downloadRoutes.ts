@@ -4,8 +4,7 @@
  */
 
 import { Router } from "express";
-import { authenticateUser } from "../middleware/auth";
-import { apiKeyAuth } from "../middleware/auth";
+import { authenticateUser, adminKeyAuth } from "../middleware/auth";
 import {
   initiateDownload,
   downloadWithToken,
@@ -24,7 +23,7 @@ router.get("/:downloadId/status", authenticateUser, getDownloadStatus);
 // Public download endpoint (token-based authentication)
 router.get("/file/:token", downloadWithToken);
 
-// Admin endpoints (require API key)
-router.delete("/cleanup-expired", apiKeyAuth, cleanupExpiredDownloads);
+// Admin endpoints (require admin API key)
+router.delete("/cleanup-expired", adminKeyAuth, cleanupExpiredDownloads);
 
 export default router;

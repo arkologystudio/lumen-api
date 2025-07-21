@@ -4,44 +4,32 @@
  */
 
 import { Router } from "express";
-import { authenticateUser, apiKeyAuth } from "../middleware/auth";
+import { authenticateUser, adminKeyAuth } from "../middleware/auth";
 import {
-  createLicenseController,
-  validateLicenseController,
   getLicenseController,
+  createLicenseHandler,
+  validateLicenseHandler,
+  updateLicenseController,
+  revokeLicenseController,
   getUserLicensesController,
   getMyLicensesController,
   getPluginLicensesController,
-  updateLicenseController,
-  revokeLicenseController,
-  getUserLicenseStatsController,
-  getMyLicenseStatsController,
-  cleanupExpiredLicensesController,
-  getLicenseByKeyController,
 } from "../controllers/licenseController";
 
 const router = Router();
 
 // Public license validation
-router.post("/validate", validateLicenseController);
+router.post("/validate", validateLicenseHandler);
 
 // User license endpoints (require authentication)
-router.get("/my", authenticateUser, getMyLicensesController);
-router.get("/stats/my", authenticateUser, getMyLicenseStatsController);
-router.get(
-  "/key/:licenseKey/info",
-  authenticateUser,
-  getLicenseByKeyController
-);
-router.get("/:licenseId", authenticateUser, getLicenseController);
+router.get("/me", authenticateUser, getMyLicensesController);
+router.get("/:id", authenticateUser, getLicenseController);
+router.put("/:id", authenticateUser, updateLicenseController);
 
-// Admin license endpoints (require API key)
-router.post("/", apiKeyAuth, createLicenseController);
-router.get("/user/:userId", apiKeyAuth, getUserLicensesController);
-router.get("/plugin/:pluginId", apiKeyAuth, getPluginLicensesController);
-router.get("/stats/user/:userId", apiKeyAuth, getUserLicenseStatsController);
-router.put("/:licenseId", apiKeyAuth, updateLicenseController);
-router.delete("/:licenseId/revoke", apiKeyAuth, revokeLicenseController);
-router.post("/cleanup-expired", apiKeyAuth, cleanupExpiredLicensesController);
+// Admin license endpoints (require admin API key)
+router.post("/", adminKeyAuth, createLicenseHandler);
+router.get("/user/:userId", adminKeyAuth, getUserLicensesController);
+router.get("/plugin/:pluginId", adminKeyAuth, getPluginLicensesController);
+router.delete("/:id", adminKeyAuth, revokeLicenseController);
 
 export default router;

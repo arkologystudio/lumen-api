@@ -3,15 +3,13 @@
  * Manages activity tracking for Recent Activity feed
  */
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/database";
 import { Request } from "express";
 import {
   ActivityLog,
   CreateActivityRequest,
   ActivityLogResponse,
 } from "../types";
-
-const prisma = new PrismaClient();
 
 /**
  * Activity types for consistent logging
@@ -58,7 +56,7 @@ export const logActivity = async (
   activityData: CreateActivityRequest
 ): Promise<ActivityLog> => {
   try {
-    const activity = await prisma.activityLog.create({
+    const activityLog = await prisma.activityLog.create({
       data: {
         user_id: activityData.user_id,
         activity_type: activityData.activity_type,
@@ -77,6 +75,10 @@ export const logActivity = async (
             id: true,
             name: true,
             email: true,
+            created_at: true,
+            updated_at: true,
+            is_active: true,
+            subscription_tier: true,
           },
         },
         site: {
@@ -84,15 +86,56 @@ export const logActivity = async (
             id: true,
             name: true,
             url: true,
+            description: true,
+            created_at: true,
+            updated_at: true,
+            is_active: true,
+            embedding_status: true,
+            last_embedding_at: true,
+            post_count: true,
+            chunk_count: true,
+            user_id: true,
           },
         },
       },
     });
 
     return {
-      ...activity,
-      metadata: (activity.metadata as Record<string, any>) || {},
-      created_at: activity.created_at.toISOString(),
+      id: activityLog.id,
+      user_id: activityLog.user_id,
+      activity_type: activityLog.activity_type,
+      title: activityLog.title,
+      description: activityLog.description ?? undefined,
+      site_id: activityLog.site_id ?? undefined,
+      target_id: activityLog.target_id ?? undefined,
+      target_type: activityLog.target_type ?? undefined,
+      metadata: (activityLog.metadata as Record<string, any>) || {},
+      created_at: activityLog.created_at.toISOString(),
+      user: {
+        id: activityLog.user.id,
+        name: activityLog.user.name,
+        email: activityLog.user.email,
+        created_at: activityLog.user.created_at.toISOString(),
+        updated_at: activityLog.user.updated_at.toISOString(),
+        is_active: activityLog.user.is_active,
+        subscription_tier: activityLog.user.subscription_tier as "free" | "pro" | "enterprise",
+      },
+      site: activityLog.site
+        ? {
+            id: activityLog.site.id,
+            name: activityLog.site.name,
+            url: activityLog.site.url,
+            description: activityLog.site.description ?? undefined,
+            created_at: activityLog.site.created_at.toISOString(),
+            updated_at: activityLog.site.updated_at.toISOString(),
+            is_active: activityLog.site.is_active,
+            embedding_status: activityLog.site.embedding_status as "not_started" | "in_progress" | "completed" | "failed",
+            last_embedding_at: activityLog.site.last_embedding_at?.toISOString(),
+            post_count: activityLog.site.post_count,
+            chunk_count: activityLog.site.chunk_count,
+            user_id: activityLog.site.user_id,
+          }
+        : undefined,
     };
   } catch (error) {
     console.error("Error logging activity:", error);

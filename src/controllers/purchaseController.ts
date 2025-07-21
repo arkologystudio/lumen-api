@@ -4,25 +4,23 @@
  */
 
 import { Request, Response } from "express";
+import { prisma } from "../config/database";
 import { AuthenticatedRequest } from "../middleware/auth";
-import { PrismaClient } from "@prisma/client";
 import { createLicense } from "../services/licenseService";
+import { ADD_ON_PRICING } from "../config/pricing";
 import {
-  PurchaseRequest,
   SimulatePurchaseRequest,
   PurchaseResponse,
-  AvailableProductResponse,
-  PurchaseHistoryItem,
   GiftLicenseRequest,
   LicenseType,
   BillingPeriod,
+  AvailableProductResponse,
+  PurchaseHistoryItem,
 } from "../types";
 import {
   logActivityWithRequest,
   ACTIVITY_TYPES,
 } from "../services/activityLogService";
-
-const prisma = new PrismaClient();
 
 /**
  * Pricing configuration for products
@@ -163,13 +161,12 @@ export const simulatePurchase = async (
     }
 
     // Find the ecosystem product
-    const product = await prisma.ecosystemProduct.findUnique({
+    const product = await prisma.product.findUnique({
       where: { slug: product_slug },
       include: {
-        plugins: {
+        pricing_tiers: {
           where: { is_active: true },
-          orderBy: { version: "desc" },
-          take: 1,
+          orderBy: { sort_order: "asc" },
         },
       },
     });
@@ -235,8 +232,10 @@ export const simulatePurchase = async (
         ? pricingConfig.annual_price
         : pricingConfig.monthly_price;
 
-    const extraSitesCost = additional_sites * 15; // $15 per extra site
-    const customEmbeddingCost = custom_embedding ? basePrice * 0.15 : 0; // 15% markup
+    const extraSitesCost = additional_sites * ADD_ON_PRICING.extra_site_price;
+    const customEmbeddingCost = custom_embedding 
+      ? basePrice * (ADD_ON_PRICING.custom_embedding_markup / 100) 
+      : 0;
     const totalPrice = basePrice + extraSitesCost + customEmbeddingCost;
 
     // Create the license
@@ -302,7 +301,7 @@ export const simulatePurchase = async (
           version: product.version,
           is_active: product.is_active,
           is_beta: product.is_beta,
-          base_price: product.base_price,
+          base_price: product.base_price ?? undefined,
           usage_based: product.usage_based,
           features: (product.features as string[]) || [],
           limits: (product.limits as Record<string, any>) || {},
@@ -368,13 +367,12 @@ export const getAvailableProducts = async (
     }
 
     // Get all active ecosystem products
-    const products = await prisma.ecosystemProduct.findMany({
+    const products = await prisma.product.findMany({
       where: { is_active: true },
       include: {
-        plugins: {
+        pricing_tiers: {
           where: { is_active: true },
-          orderBy: { version: "desc" },
-          take: 1, // Get only the latest version
+          orderBy: { sort_order: "asc" },
         },
         licenses: {
           where: { user_id: req.user.id },
@@ -609,7 +607,7 @@ export const giftLicense = async (
     }
 
     // Find the ecosystem product
-    const product = await prisma.ecosystemProduct.findUnique({
+    const product = await prisma.product.findUnique({
       where: { slug: product_slug },
     });
 

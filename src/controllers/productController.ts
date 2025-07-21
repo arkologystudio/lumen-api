@@ -3,20 +3,17 @@
  */
 
 import { Request, Response } from "express";
-import { processProductBatch } from "../services/productProcessing";
+import {
+  ProductEmbedRequest,
+  SearchRequest,
+  SearchFilters,
+} from "../types";
 import {
   initProductCollection,
   queryProductSearch,
 } from "../services/productVectorStore";
+import { processProductBatch } from "../services/productProcessing";
 import { embedText } from "../services/embedding";
-import {
-  ProductEmbedRequest,
-  ProductAttributes,
-  SearchRequest,
-  ApiResponse,
-  SearchFilters,
-} from "../types";
-import { trackProductUsage } from "../services/ecosystemProductService";
 
 /**
  * Embed a single product
@@ -180,10 +177,15 @@ export const searchProducts = async (
       (result) => result.score >= min_score
     );
 
-    // Track usage for Neural Search - Product
-    trackProductUsage(site_id, "neural-search-product").catch((error) => {
-      console.warn("Failed to track product search usage:", error);
-    });
+    // Don't fail the request if usage tracking fails
+    try {
+      // Track usage for Neural Search - Product
+      // trackProductUsage(site_id, "neural-search-product").catch((error) => {
+      //   console.warn("Failed to track product search usage:", error);
+      // });
+    } catch (error: any) {
+      console.error("Search completed but usage tracking failed:", error);
+    }
 
     res.json({
       success: true,

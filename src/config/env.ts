@@ -42,6 +42,7 @@ export const ENV = {
   CORS_ORIGIN_DASHBOARD_PROD: process.env.CORS_ORIGIN_DASHBOARD_PROD!,
 
   
-  // Server API Key
+  // API Keys
   SERVER_API_KEY: process.env.SERVER_API_KEY!,
+  ADMIN_API_KEY: process.env.ADMIN_API_KEY || process.env.SERVER_API_KEY!, // Falls back to SERVER_API_KEY if not set
 };

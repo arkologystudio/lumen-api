@@ -5,7 +5,7 @@
 import { embedText } from "./embedding";
 import { TextChunk } from "./textChunking";
 import { SiteConfig } from "../types/wordpress";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/database";
 import { ENV } from "../config/env";
 
 interface StoredPostChunk {
@@ -38,11 +38,6 @@ interface PostSearchResult {
     score: number;
   }>;
 }
-
-// Initialize Prisma client
-console.log("Initializing Prisma client for multi-site vector store");
-
-const prisma = new PrismaClient();
 
 /**
  * Generate collection name for a site (for compatibility)
@@ -136,30 +131,30 @@ export const upsertSiteChunks = async (
         // Convert embedding array to PostgreSQL vector format
         const embeddingVector = `[${embedding.join(",")}]`;
 
-        // Upsert chunk using Prisma
-        await prisma.postChunk.upsert({
-          where: {
-            chunk_id: chunk.id,
-          },
-          update: {
-            post_title: chunk.postTitle,
-            post_url: chunk.postUrl,
-            chunk_index: chunk.chunkIndex,
-            content: chunk.content,
-            embedding: embeddingVector as any, // Cast to any for Unsupported type
-            updated_at: new Date(),
-          },
-          create: {
-            chunk_id: chunk.id,
-            site_id: siteId,
-            post_id: chunk.postId,
-            post_title: chunk.postTitle,
-            post_url: chunk.postUrl,
-            chunk_index: chunk.chunkIndex,
-            content: chunk.content,
-            embedding: embeddingVector as any, // Cast to any for Unsupported type
-          },
+        // Use findFirst/create pattern instead of upsert
+        const existingChunk = await prisma.postChunk.findFirst({
+          where: { chunk_id: chunk.id },
         });
+
+                 if (existingChunk) {
+           // Use raw SQL for updating with vector data
+           await prisma.$executeRaw`
+             UPDATE post_chunks 
+             SET post_title = ${chunk.postTitle},
+                 post_url = ${chunk.postUrl},
+                 chunk_index = ${chunk.chunkIndex},
+                 content = ${chunk.content},
+                 embedding = ${embeddingVector}::vector,
+                 updated_at = NOW()
+             WHERE id = ${existingChunk.id}
+           `;
+         } else {
+           // Use raw SQL for creating with vector data
+           await prisma.$executeRaw`
+             INSERT INTO post_chunks (id, chunk_id, site_id, post_id, post_title, post_url, chunk_index, content, embedding, created_at, updated_at)
+             VALUES (gen_random_uuid(), ${chunk.id}, ${siteId}, ${chunk.postId}, ${chunk.postTitle}, ${chunk.postUrl}, ${chunk.chunkIndex}, ${chunk.content}, ${embeddingVector}::vector, NOW(), NOW())
+           `;
+         }
 
         console.log(`Successfully upserted chunk ${chunk.id}`);
       } catch (error) {
@@ -347,14 +342,13 @@ export const getSiteChunksCount = async (siteId: string): Promise<number> => {
   try {
     console.log(`Getting chunk count for site ${siteId}`);
 
-    const count = await prisma.postChunk.count({
-      where: {
-        site_id: siteId,
-        embedding: {
-          not: null,
-        },
-      },
-    });
+    // Use raw SQL to count chunks with embeddings
+    const result = await prisma.$queryRaw<{count: string}[]>`
+      SELECT COUNT(*)::text as count
+      FROM post_chunks 
+      WHERE site_id = ${siteId} AND embedding IS NOT NULL
+    `;
+    const count = parseInt(result[0]?.count || '0');
 
     return count;
   } catch (error) {
@@ -394,23 +388,19 @@ export const flushSiteCollection = async (siteId: string): Promise<void> => {
 export const listSiteCollections = async (): Promise<SiteConfig[]> => {
   try {
     // Get unique sites from post_chunks table with chunk counts
-    const sitesWithChunks = await prisma.postChunk.groupBy({
-      by: ['site_id'],
-      _count: {
-        id: true,
-      },
-      where: {
-        embedding: {
-          not: null,
-        },
-      },
-    });
+    // Use raw SQL to count chunks with embeddings per site
+    const sitesWithChunks = await prisma.$queryRaw<{site_id: string, count: string}[]>`
+      SELECT site_id, COUNT(*)::text as count
+      FROM post_chunks 
+      WHERE embedding IS NOT NULL
+      GROUP BY site_id
+    `;
 
     const siteCollections: SiteConfig[] = [];
 
-    for (const siteData of sitesWithChunks) {
-      const siteId = siteData.site_id;
-      const chunkCount = siteData._count.id;
+          for (const siteData of sitesWithChunks) {
+        const siteId = siteData.site_id;
+        const chunkCount = parseInt(siteData.count) || 0;
 
       // Try to get site details from the Site table
       const siteDetails = await prisma.site.findUnique({

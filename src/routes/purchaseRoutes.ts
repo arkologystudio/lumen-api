@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { authenticateUser, apiKeyAuth } from "../middleware/auth";
+import { authenticateUser, adminKeyAuth } from "../middleware/auth";
 import {
   simulatePurchase,
   getAvailableProducts,
@@ -19,7 +19,7 @@ router.post("/simulate", authenticateUser, simulatePurchase);
 router.get("/available", authenticateUser, getAvailableProducts);
 router.get("/history", authenticateUser, getPurchaseHistory);
 
-// Admin endpoints (require API key)
-router.post("/gift", apiKeyAuth, giftLicense);
+// Admin endpoints (require admin API key)
+router.post("/gift", adminKeyAuth, giftLicense);
 
 export default router;

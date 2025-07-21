@@ -7,7 +7,7 @@ import siteRoutes from "./routes/siteRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import productRoutes from "./routes/productRoutes";
 import ecosystemProductRoutes from "./routes/ecosystemProductRoutes";
-import adminEcosystemProductRoutes from "./routes/adminEcosystemProductRoutes";
+
 import activityRoutes from "./routes/activityRoutes";
 import adminActivityRoutes from "./routes/adminActivityRoutes";
 // Licensing routes
@@ -20,10 +20,11 @@ import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
-import { initializeEcosystemProducts } from "./services/ecosystemProductService";
-import { initializePluginStorage } from "./services/pluginService";
+import { initializeDefaultProducts } from "./services/ecosystemProductService";
+import { initializeStorage } from "./services/supabaseStorage";
 
-export const app = express();
+
+const app = express();
 const port = process.env.PORT || 3000;
 
 // trust proxy
@@ -71,8 +72,6 @@ app.use("/api/ecosystem", ecosystemProductRoutes);
 // Activity logging routes (protected)
 app.use("/api/users", activityRoutes);
 
-// Admin ecosystem product routes (API key protected)
-app.use("/api/admin", adminEcosystemProductRoutes);
 
 // Admin activity routes (API key protected)
 app.use("/api/admin", adminActivityRoutes);
@@ -95,23 +94,19 @@ app.use("/api/embedding", embeddingRoutes);
 
 // Start server - using Supabase for all storage needs
 const startServer = async () => {
-  console.log("Starting Lumen Neural Search API server...");
-  console.log("Using Supabase for database, vector embeddings, and file storage");
-
-  // Initialize ecosystem products
   try {
-    await initializeEcosystemProducts();
-  } catch (error) {
-    console.error("Warning: Failed to initialize ecosystem products:", error);
-    // Don't block server startup on ecosystem product initialization failure
-  }
+    console.log("🚀 Starting Lumen API server...");
+    console.log("Using Supabase for database, vector embeddings, and file storage");
 
-  // Initialize Supabase Storage for plugin files
-  try {
-    await initializePluginStorage();
+    // Initialize storage buckets
+    console.log("📦 Initializing storage buckets...");
+    await initializeStorage();
+
+    console.log("✅ Storage initialization completed successfully");
+    console.log("💡 Use POST /api/admin/products/initialize to set up default products");
   } catch (error) {
-    console.error("Warning: Failed to initialize Supabase Storage:", error);
-    // Don't block server startup on storage initialization failure
+    console.error("❌ Initialization failed:", error);
+    process.exit(1);
   }
 
   // Start Express server
@@ -152,3 +147,6 @@ const startServer = async () => {
 if (require.main === module) {
   startServer();
 }
+
+// Export app for Vercel
+export default app;

@@ -4,8 +4,10 @@ import {
   getAllSitesController,
   getAllCollectionsController,
   getSystemStatsController,
-  debugEcosystemProductsController,
-  deleteEcosystemProductController,
+  initializeProductsController,
+  initializePricingTiersController,
+  initializeCompleteSystemController,
+  getProductsStatusController,
   cleanupEcosystemProductsController,
 } from "../controllers/adminController";
 import {
@@ -13,12 +15,12 @@ import {
   getSiteChunksCountController,
   getEmbeddingStatusController,
 } from "../controllers/embeddingController";
-import { apiKeyAuth } from "../middleware/auth";
+import { adminKeyAuth } from "../middleware/auth";
 
 const router = express.Router();
 
-// ── ALL ADMIN ROUTES REQUIRE API KEY AUTHENTICATION ──────────────────────
-router.use(apiKeyAuth);
+// ── ALL ADMIN ROUTES REQUIRE ADMIN API KEY AUTHENTICATION ──────────────────────
+router.use(adminKeyAuth);
 
 // ── USER MANAGEMENT ───────────────────────────────────────────────────────
 router.get("/users", getAllUsersController);
@@ -35,9 +37,11 @@ router.get("/collections", getAllCollectionsController);
 // ── SYSTEM STATISTICS ─────────────────────────────────────────────────────
 router.get("/stats", getSystemStatsController);
 
-// ── ECOSYSTEM PRODUCTS ─────────────────────────────────────────────────────
-router.get("/products/debug", debugEcosystemProductsController);
-router.delete("/products/:identifier", deleteEcosystemProductController);
+// ── ECOSYSTEM PRODUCTS & LICENSING ─────────────────────────────────────────
+router.get("/products/status", getProductsStatusController);
+router.post("/products/initialize", initializeProductsController);
+router.post("/pricing-tiers/initialize", initializePricingTiersController);
+router.post("/system/initialize", initializeCompleteSystemController);
 router.post("/products/cleanup", cleanupEcosystemProductsController);
 
 export default router;

@@ -3,19 +3,16 @@
  * Handles product embeddings with structured data and filtering
  */
 
-import { PrismaClient } from "@prisma/client";
-import { ENV } from "../config/env";
-import { processProduct, ProcessedProduct } from "./productProcessing";
+import { prisma } from "../config/database";
+// import { ENV } from "../config/env";
+// import { processProduct, ProcessedProduct } from "./productProcessing";
 import {
-  ProductEmbedRequest,
+
   ProductSearchResult,
   SearchFilters,
   ProductAttributes,
 } from "../types";
 import { embedText } from "./embedding";
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 /**
  * Convert embedding output to number array
@@ -73,42 +70,38 @@ export const upsertProductEmbedding = async (
     // Convert embedding array to PostgreSQL vector format
     const embeddingVector = `[${embedding.join(",")}]`;
 
-    // Upsert product embedding
-    await prisma.productEmbedding.upsert({
+    // Use findFirst/create pattern instead of upsert
+    const existingEmbedding = await prisma.productEmbedding.findFirst({
       where: {
-        site_id_product_id: {
-          site_id: siteId,
-          product_id: productData.product_id,
-        },
-      },
-      update: {
-        title: productData.title,
-        url: productData.url,
-        brand: productData.brand || null,
-        category: productData.category || null,
-        price_usd: productData.price_usd || null,
-        rating: productData.rating || null,
-        availability: productData.availability || null,
-        searchable_text: productData.searchable_text,
-        structured_data: productData.structured_data || null,
-        embedding: embeddingVector as any, // Cast to any for Unsupported type
-        updated_at: new Date(),
-      },
-      create: {
         site_id: siteId,
         product_id: productData.product_id,
-        title: productData.title,
-        url: productData.url,
-        brand: productData.brand || null,
-        category: productData.category || null,
-        price_usd: productData.price_usd || null,
-        rating: productData.rating || null,
-        availability: productData.availability || null,
-        searchable_text: productData.searchable_text,
-        structured_data: productData.structured_data || null,
-        embedding: embeddingVector as any, // Cast to any for Unsupported type
       },
     });
+
+         if (existingEmbedding) {
+       // Use raw SQL for updating with vector data
+       await prisma.$executeRaw`
+         UPDATE product_embeddings 
+         SET title = ${productData.title},
+             url = ${productData.url},
+             brand = ${productData.brand || null},
+             category = ${productData.category || null},
+             price_usd = ${productData.price_usd || null},
+             rating = ${productData.rating || null},
+             availability = ${productData.availability || null},
+             searchable_text = ${productData.searchable_text},
+             structured_data = ${productData.structured_data ? JSON.stringify(productData.structured_data) : null}::jsonb,
+             embedding = ${embeddingVector}::vector,
+             updated_at = NOW()
+         WHERE id = ${existingEmbedding.id}
+       `;
+     } else {
+       // Use raw SQL for creating with vector data
+       await prisma.$executeRaw`
+         INSERT INTO product_embeddings (id, site_id, product_id, title, url, brand, category, price_usd, rating, availability, searchable_text, structured_data, embedding, created_at, updated_at)
+         VALUES (gen_random_uuid(), ${siteId}, ${productData.product_id}, ${productData.title}, ${productData.url}, ${productData.brand || null}, ${productData.category || null}, ${productData.price_usd || null}, ${productData.rating || null}, ${productData.availability || null}, ${productData.searchable_text}, ${productData.structured_data ? JSON.stringify(productData.structured_data) : null}::jsonb, ${embeddingVector}::vector, NOW(), NOW())
+       `;
+     }
 
     console.log(`Successfully upserted product embedding for product ${productData.product_id}`);
   } catch (error) {
@@ -216,7 +209,7 @@ export const queryProductSearch = async (
             category: result.category || undefined,
             price_usd: result.price_usd || undefined,
             rating: result.rating || undefined,
-            availability: result.availability || undefined,
+            availability: (result.availability as "in_stock" | "out_of_stock" | "limited" | "pre_order") || undefined,
             ...structuredData,
           },
           matched_text: result.searchable_text?.substring(0, 200) + "..." || "",
@@ -249,14 +242,13 @@ export const getProductStats = async (
   const collectionName = `site_${siteId}_products`;
 
   try {
-    const productCount = await prisma.productEmbedding.count({
-      where: {
-        site_id: siteId,
-        embedding: {
-          not: null,
-        },
-      },
-    });
+    // Use raw SQL to count products with embeddings
+    const result = await prisma.$queryRaw<{count: string}[]>`
+      SELECT COUNT(*)::text as count
+      FROM product_embeddings 
+      WHERE site_id = ${siteId} AND embedding IS NOT NULL
+    `;
+    const productCount = parseInt(result[0]?.count || '0');
 
     return {
       siteId,
@@ -297,14 +289,13 @@ export const dropProductCollection = async (siteId: string): Promise<void> => {
  */
 export const getProductEmbeddingsCount = async (siteId: string): Promise<number> => {
   try {
-    return await prisma.productEmbedding.count({
-      where: {
-        site_id: siteId,
-        embedding: {
-          not: null,
-        },
-      },
-    });
+    // Use raw SQL to count products with embeddings
+    const result = await prisma.$queryRaw<{count: string}[]>`
+      SELECT COUNT(*)::text as count
+      FROM product_embeddings 
+      WHERE site_id = ${siteId} AND embedding IS NOT NULL
+    `;
+    return parseInt(result[0]?.count || '0');
   } catch (error) {
     console.error(`Error getting product embeddings count for site ${siteId}:`, error);
     return 0;

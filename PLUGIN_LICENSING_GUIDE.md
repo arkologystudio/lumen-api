@@ -1,6 +1,6 @@
-# Lumen API Pricing & Licensing System Guide
+# Lumen API Product Pricing & Licensing System Guide
 
-This guide explains the comprehensive pricing structure and licensing system for the Lumen API, including multiple tiers, query tracking, and billing management.
+This guide explains the comprehensive pricing structure and licensing system for the Lumen API, including multiple tiers, query tracking, and billing management for unified products (both SaaS features and downloadable content).
 
 ## Overview
 
@@ -11,6 +11,7 @@ The Lumen API pricing system consists of:
 3. **License Management** - Product-based licensing with flexible billing
 4. **Add-on Services** - Additional sites, query overages, and custom features
 5. **Agent/API Access** - Programmatic access controls for different tiers
+6. **Unified Product Model** - Products can include both SaaS functionality and downloadable files
 
 ## Pricing Structure
 
@@ -35,7 +36,8 @@ The Lumen API pricing system consists of:
 - **License** - Product-based licenses with billing and usage tracking
 - **QueryUsage** - Individual query tracking with performance metrics
 - **PricingTier** - Configurable pricing structure
-- **EcosystemProduct** - Products available for licensing
+- **Product** - Unified products with SaaS features and optional downloadable content (replaces separate EcosystemProduct and Plugin models)
+- **Download** - Tracking for downloadable product files
 
 ### License Types
 - `standard` - Basic tier with human UI access

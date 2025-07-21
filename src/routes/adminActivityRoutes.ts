@@ -8,12 +8,12 @@ import {
   getSystemActivitiesController,
   getSystemActivityStatsController,
 } from "../controllers/activityController";
-import { apiKeyAuth } from "../middleware/auth";
+import { adminKeyAuth } from "../middleware/auth";
 
 const router = Router();
 
-// Admin activity routes (API key required)
-router.get("/activities", apiKeyAuth, getSystemActivitiesController);
-router.get("/activities/stats", apiKeyAuth, getSystemActivityStatsController);
+// Admin activity routes (Admin API key required)
+router.get("/activities", adminKeyAuth, getSystemActivitiesController);
+router.get("/activities/stats", adminKeyAuth, getSystemActivityStatsController);
 
 export default router;

@@ -7,10 +7,8 @@ import { Router } from "express";
 import {
   getUserActivitiesController,
   getSiteActivitiesController,
-  getSystemActivitiesController,
   getUserActivityStatsController,
   getSiteActivityStatsController,
-  getSystemActivityStatsController,
 } from "../controllers/activityController";
 import { authenticateJWT } from "../middleware/auth";
 

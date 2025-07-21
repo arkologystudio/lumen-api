@@ -1,272 +1,319 @@
 /**
- * Ecosystem Product Service
- * Manages SaaS products offered in the ecosystem and site registrations
+ * Product Service
+ * Manages products and site registrations (unified from ecosystem products and plugins)
  */
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/database";
 import {
-  EcosystemProduct,
+  Product,
   SiteProduct,
   RegisterSiteProductRequest,
   UpdateSiteProductRequest,
+  CreateProductRequest,
+  UpdateProductRequest,
 } from "../types";
 
-const prisma = new PrismaClient();
-
-// Predefined ecosystem products
-const ECOSYSTEM_PRODUCTS = [
+// Predefined products - aligned with licensing guide
+const DEFAULT_PRODUCTS = [
   {
-    name: "Neural Search - Knowledge",
-    slug: "neural-search-knowledge",
+    name: "Lumen Neural Search API",
+    slug: "lumen-search-api",
     description:
-      "AI-powered semantic search for knowledge bases, documentation, and blog content. Transform how users discover information.",
+      "Complete neural search platform with AI-powered semantic search, vector embeddings, and natural language processing for content and e-commerce.",
     category: "search",
     version: "1.0",
     is_active: true,
     is_beta: false,
-    base_price: 29.0,
+    base_price: 19.0, // Starting at Standard tier price
     usage_based: true,
     features: [
-      "Semantic search across all content",
+      "Semantic search across all content types",
+      "Vector embeddings with pgvector",
       "Multi-language support",
       "Real-time indexing",
-      "Relevance scoring",
-      "Search analytics",
-      "API access",
+      "Search analytics and insights",
+      "RESTful API access",
+      "Usage tracking and billing",
+      "Multi-tier licensing system"
     ],
     limits: {
-      free: { sites: 1, searches_per_month: 1000, chunks: 5000 },
-      pro: { sites: 10, searches_per_month: 50000, chunks: 100000 },
-      enterprise: { sites: -1, searches_per_month: -1, chunks: -1 },
+      standard: { sites: 1, queries_per_month: 100, api_access: false },
+      standard_plus: { sites: 1, queries_per_month: 100, api_access: true },
+      premium: { sites: 1, queries_per_month: 2000, api_access: false },
+      premium_plus: { sites: 1, queries_per_month: 2000, api_access: true },
+      enterprise: { sites: 10, queries_per_month: -1, api_access: true }
     },
-    extended_documentation: "",
+    extended_documentation: "Complete neural search solution with tiered pricing and comprehensive API access.",
+  }
+];
+
+// Default pricing tiers - matching the licensing guide exactly
+const DEFAULT_PRICING_TIERS = [
+  {
+    tier_name: "standard",
+    display_name: "Standard",
+    description: "Basic neural search with human UI access only",
+    monthly_price: 19.00,
+    annual_price: 205.00,
+    max_queries: 100,
+    max_sites: 1,
+    agent_api_access: false,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "100 queries per month",
+      "1 site included",
+      "Human UI access only",
+      "Basic search analytics",
+      "Email support"
+    ],
+    is_active: true,
+    sort_order: 1
   },
   {
-    name: "Neural Search - Product",
-    slug: "neural-search-product",
-    description:
-      "Advanced AI search for e-commerce and product catalogs. Enable customers to find products using natural language.",
-    category: "search",
-    version: "1.0",
-    is_active: true,
-    is_beta: false,
-    base_price: 49.0,
-    usage_based: true,
+    tier_name: "standard_plus",
+    display_name: "Standard+",
+    description: "Basic neural search with agent/API access",
+    monthly_price: 24.00,
+    annual_price: 259.00,
+    max_queries: 100,
+    max_sites: 1,
+    agent_api_access: true,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
     features: [
-      "Product semantic search",
-      "Attribute-based filtering",
-      "Price range queries",
-      "Brand and category search",
-      "Inventory integration",
-      "Search recommendations",
-      "Purchase intent analysis",
+      "100 queries per month",
+      "1 site included", 
+      "Full API access for agents",
+      "Advanced search analytics",
+      "Priority email support"
     ],
-    limits: {
-      free: { sites: 1, searches_per_month: 500, products: 1000 },
-      pro: { sites: 5, searches_per_month: 25000, products: 50000 },
-      enterprise: { sites: -1, searches_per_month: -1, products: -1 },
-    },
-    extended_documentation: "",
+    is_active: true,
+    sort_order: 2
   },
   {
-    name: "AI Ready Core",
-    slug: "ai-ready-core",
-    description:
-      "Transform your WordPress site for the Agentic Web. Enhance discoverability and conversions by AI Agents.",
-    category: "analysis",
-    version: "1.0",
-    is_active: true,
-    is_beta: true,
-    base_price: 19.0,
-    usage_based: false,
+    tier_name: "premium",
+    display_name: "Premium",
+    description: "Advanced neural search with higher limits",
+    monthly_price: 49.00,
+    annual_price: 529.00,
+    max_queries: 2000,
+    max_sites: 1,
+    agent_api_access: false,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
     features: [
-      "AI-Readiness Diagnostics with 0-100% scoring",
-      "llms.txt generation and serving",
-      "Agent Gate for robots.txt configuration",
-      "AI bot permissions management (GPTBot, Claude-Web, etc.)",
-      "JSON-LD structured data validation",
-      "Content analysis and cataloging",
-      "Security and performance optimizations",
-      "Translation system support",
+      "2,000 queries per month",
+      "1 site included",
+      "Human UI access only",
+      "Advanced analytics dashboard",
+      "Priority support"
     ],
-    limits: {
-      free: { sites: 1, analyses_per_month: 2 },
-      pro: { sites: 10, analyses_per_month: 20 },
-      enterprise: { sites: -1, analyses_per_month: -1 },
-    },
-    extended_documentation: `=== AI-Ready Core ===
-Contributors: Arkology Studio
-Tags: ai, llm, seo, chatgpt, claude
-Requires at least: 5.0
-Tested up to: 6.8
-Requires PHP: 7.4
-Stable tag: 1.0.0
-License: GPLv2 or later
-License URI: https://www.gnu.org/licenses/gpl-2.0.html
-
-Transform your WordPress site for the Agentic Web. Enhance discoverability and conversions by AI Agents.
-
-== Description ==
-
-AI agents are becoming the new browsers and web surfers. As AI agents become increasingly autonomous they'll begin to make up the vast majority of website traffic, browsing and even purchasing products online.
-Already today, chatbots like ChatGPT, Claude, and Perplexity increasingly access web content. AI Ready is a suite of tools for optimizing your website for AI discoverability and comprehension, ultimately leading to increased traffic and conversions.
-
-= Key Features =
-
-•⁠  ⁠*AI-Readiness Diagnostics*
-  * 0-100% AI-Ready score with detailed breakdown
-  * Checks llms.txt accessibility and validity
-  * Validates robots.txt AI bot permissions (GPTBot, Claude-Web, etc.)
-  * Detects noai meta tags
-  * Checks JSON-LD structured data presence
-  * Additional checks for XML sitemaps, accessibility, and SEO
-
-•⁠  ⁠*llms.txt Generation*
-  * Serves ⁠ /llms.txt ⁠ with proper ⁠ text/plain ⁠ content type
-  * Automatically finds and catalogs your published pages
-  * Extracts meaningful page descriptions using content analysis
-  * Refreshes content when pages are published or updated
-  * Allows advanced users to add custom markdown sections
-
-•⁠  ⁠*Agent Gate*
-  * Configure robots.txt to allow or block specific AI agents (GPTBot, Claude-Web, Perplexity, etc.)
-
-== Installation ==
-
-1.⁠ ⁠Upload the ⁠ ai-ready-core ⁠ folder to the ⁠ /wp-content/plugins/ ⁠ directory
-2.⁠ ⁠Activate the plugin through the 'Plugins' menu in WordPress
-3.⁠ ⁠Navigate to ⁠ Settings → AI Ready ⁠ to configure the plugin
-4.⁠ ⁠Run the diagnostics to check your site's AI-readiness score
-5.⁠ ⁠Generate your site's llms.txt file (available at ⁠ yoursite.com/llms.txt ⁠, once ready)
-6.⁠ ⁠Configure how and which agents should access your website under the Agent Gate menu.
-
-Alternatively, you can install via WordPress admin:
-
-1.⁠ ⁠Go to ⁠ Plugins → Add New → Upload Plugin ⁠
-2.⁠ ⁠Choose the plugin ZIP file and click "Install Now"
-3.⁠ ⁠Activate the plugin
-4.⁠ ⁠Navigate to ⁠ Settings → AI Ready ⁠ to configure
-
-== Frequently Asked Questions ==
-
-= What is llms.txt? =
-
-llms.txt is an emerging standard for AI agent navigation, similar to robots.txt but specifically designed for AI language models and chatbots. It helps AI agents better understand and navigate your website content.
-
-= Does this plugin send data to external services? =
-
-No. AI-Ready Core works completely locally with no external dependencies. All processing happens on your server, and no data is sent to external services.
-
-= Will this affect my site's performance? =
-
-The plugin is designed to be extremely lightweight and uses intelligent caching. The llms.txt generation process only runs when content is updated, and diagnostics are run on-demand.
-
-= Is this compatible with caching plugins? =
-
-Yes, AI-Ready Core works with popular WordPress caching plugins and includes proper cache invalidation when content is updated.
-
-= Does this work with multilingual sites? =
-
-Yes, the plugin is translation-ready and can handle multilingual content. The llms.txt generator will include content in all available languages.
-
-== Screenshots ==
-
-1.⁠ ⁠Diagnostics Dashboard - AI-readiness scoring with detailed status checks
-2.⁠ ⁠Configuration Panel - llms.txt settings with live preview
-3.⁠ ⁠llms.txt Output - Clean, standardized format for AI agent consumption
-4.⁠ ⁠Loading States - Professional animations and user feedback
-
-== Changelog ==
-
-= 1.0.0 =
-•⁠  ⁠Initial release
-•⁠  ⁠llms.txt generation and serving
-•⁠  ⁠AI-readiness diagnostics
-•⁠  ⁠Admin interface with configuration options
-•⁠  ⁠Security and performance optimizations
-•⁠  ⁠Translation system implementation
-
-== Upgrade Notice ==
-
-= 1.0.0 =
-First public release of AI-Ready Core. Install to make your WordPress site AI-ready!`,
+    is_active: true,
+    sort_order: 3
   },
+  {
+    tier_name: "premium_plus", 
+    display_name: "Premium+",
+    description: "Advanced neural search with agent/API access",
+    monthly_price: 59.00,
+    annual_price: 637.00,
+    max_queries: 2000,
+    max_sites: 1,
+    agent_api_access: true,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "2,000 queries per month",
+      "1 site included",
+      "Full API access for agents",
+      "Advanced analytics dashboard",
+      "Priority support",
+      "Webhook integrations"
+    ],
+    is_active: true,
+    sort_order: 4
+  },
+  {
+    tier_name: "enterprise",
+    display_name: "Enterprise", 
+    description: "Unlimited neural search with full features",
+    monthly_price: 199.00,
+    annual_price: 2149.00,
+    max_queries: null, // Unlimited
+    max_sites: 10,
+    agent_api_access: true,
+    extra_site_price: 15.00,
+    overage_price: null, // No overages for unlimited
+    custom_embedding_markup: 0.15, // 15% markup
+    features: [
+      "Unlimited queries",
+      "10 sites included",
+      "Full API access for agents",
+      "Custom embedding models",
+      "Dedicated support",
+      "SLA guarantees",
+      "Custom integrations"
+    ],
+    is_active: true,
+    sort_order: 5
+  }
 ];
 
 /**
- * Initialize ecosystem products (auto-populate on startup)
+ * Initialize default products in the database
  */
-export const initializeEcosystemProducts = async (): Promise<void> => {
-  console.log("🔧 Initializing ecosystem products...");
-
+export const initializeDefaultProducts = async (): Promise<void> => {
   try {
-    for (const productData of ECOSYSTEM_PRODUCTS) {
-      const existingProduct = await prisma.ecosystemProduct.findUnique({
+    console.log("🛍️ Initializing default products...");
+    for (const productData of DEFAULT_PRODUCTS) {
+      await prisma.product.upsert({
         where: { slug: productData.slug },
+        update: {
+          name: productData.name,
+          description: productData.description,
+          category: productData.category,
+          version: productData.version,
+          is_active: productData.is_active,
+          is_beta: productData.is_beta,
+          base_price: productData.base_price,
+          usage_based: productData.usage_based,
+          features: productData.features,
+          limits: productData.limits,
+          extended_documentation: productData.extended_documentation,
+        },
+        create: productData,
       });
-
-      if (!existingProduct) {
-        await prisma.ecosystemProduct.create({
-          data: {
-            ...productData,
-            features: productData.features,
-            limits: productData.limits,
-          },
-        });
-        console.log(`✅ Created ecosystem product: ${productData.name}`);
-      } else {
-        // Update existing product with latest data
-        await prisma.ecosystemProduct.update({
-          where: { slug: productData.slug },
-          data: {
-            ...productData,
-            features: productData.features,
-            limits: productData.limits,
-          },
-        });
-        console.log(`🔄 Updated ecosystem product: ${productData.name}`);
-      }
+      console.log(`✅ Product upserted: ${productData.name}`);
     }
-
-    console.log("✅ Ecosystem products initialized successfully");
+    console.log("✅ Default products initialized successfully");
   } catch (error) {
-    console.error("❌ Failed to initialize ecosystem products:", error);
+    console.error("❌ Error initializing default products:", error);
     throw error;
   }
 };
 
 /**
- * Get all active ecosystem products
+ * Initialize default pricing tiers in the database
  */
-export const getAllEcosystemProducts = async (): Promise<
-  EcosystemProduct[]
+export const initializeDefaultPricingTiers = async (): Promise<void> => {
+  try {
+    console.log("💰 Initializing default pricing tiers...");
+    
+    // First, get the main product to link pricing tiers to
+    const mainProduct = await prisma.product.findUnique({
+      where: { slug: "lumen-search-api" }
+    });
+    
+    if (!mainProduct) {
+      throw new Error("Main product 'lumen-search-api' not found. Please initialize products first.");
+    }
+
+    for (const tierData of DEFAULT_PRICING_TIERS) {
+      await prisma.pricingTier.upsert({
+        where: { 
+          product_id_tier_name: {
+            product_id: mainProduct.id,
+            tier_name: tierData.tier_name
+          }
+        },
+        update: {
+          display_name: tierData.display_name,
+          description: tierData.description,
+          monthly_price: tierData.monthly_price,
+          annual_price: tierData.annual_price,
+          max_queries: tierData.max_queries,
+          max_sites: tierData.max_sites,
+          agent_api_access: tierData.agent_api_access,
+          extra_site_price: tierData.extra_site_price,
+          overage_price: tierData.overage_price,
+          custom_embedding_markup: tierData.custom_embedding_markup,
+          features: tierData.features,
+          is_active: tierData.is_active,
+          sort_order: tierData.sort_order,
+        },
+        create: {
+          product_id: mainProduct.id,
+          ...tierData,
+        },
+      });
+      console.log(`✅ Pricing tier upserted: ${tierData.display_name}`);
+    }
+    
+    console.log("✅ Default pricing tiers initialized successfully");
+  } catch (error) {
+    console.error("❌ Error initializing default pricing tiers:", error);
+    throw error;
+  }
+};
+
+/**
+ * Initialize both products and pricing tiers (complete setup)
+ */
+export const initializeCompleteSystem = async (): Promise<void> => {
+  try {
+    console.log("🚀 Initializing complete licensing system...");
+    
+    // Initialize products first
+    await initializeDefaultProducts();
+    
+    // Then initialize pricing tiers
+    await initializeDefaultPricingTiers();
+    
+    console.log("🎉 Complete licensing system initialized successfully!");
+  } catch (error) {
+    console.error("❌ Error initializing complete system:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get all active products
+ */
+export const getAllProducts = async (): Promise<
+  Product[]
 > => {
   try {
-    const products = await prisma.ecosystemProduct.findMany({
+    const products = await prisma.product.findMany({
       where: { is_active: true },
       orderBy: [{ category: "asc" }, { name: "asc" }],
     });
 
     return products.map((product: any) => ({
-      ...product,
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      category: product.category,
+      version: product.version,
+      is_active: product.is_active,
+      is_beta: product.is_beta,
+      base_price: product.base_price ?? undefined,
+      usage_based: product.usage_based,
       features: (product.features as string[]) || [],
       limits: (product.limits as Record<string, any>) || {},
-      extended_documentation: (product.extended_documentation as string) || "",
+      extended_documentation: product.extended_documentation || "",
+      created_at: product.created_at.toISOString(),
+      updated_at: product.updated_at.toISOString(),
     }));
   } catch (error) {
-    console.error("Error getting ecosystem products:", error);
+    console.error("Error getting products:", error);
     throw error;
   }
 };
 
 /**
- * Get ecosystem products by category
+ * Get products by category
  */
-export const getEcosystemProductsByCategory = async (
+export const getProductsByCategory = async (
   category: string
-): Promise<EcosystemProduct[]> => {
+): Promise<Product[]> => {
   try {
-    const products = await prisma.ecosystemProduct.findMany({
+    const products = await prisma.product.findMany({
       where: {
         category,
         is_active: true,
@@ -287,26 +334,164 @@ export const getEcosystemProductsByCategory = async (
 };
 
 /**
- * Get single ecosystem product by slug
+ * Get single product by slug
  */
-export const getEcosystemProductBySlug = async (
+export const getProductBySlug = async (
   slug: string
-): Promise<EcosystemProduct | null> => {
+): Promise<Product | null> => {
   try {
-    const product = await prisma.ecosystemProduct.findUnique({
+    const product = await prisma.product.findUnique({
       where: { slug },
     });
 
     if (!product) return null;
 
     return {
-      ...product,
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      category: product.category,
+      version: product.version,
+      is_active: product.is_active,
+      is_beta: product.is_beta,
+      base_price: product.base_price ?? undefined,
+      usage_based: product.usage_based,
       features: (product.features as string[]) || [],
       limits: (product.limits as Record<string, any>) || {},
-      extended_documentation: (product.extended_documentation as string) || "",
+      extended_documentation: product.extended_documentation || "",
+      created_at: product.created_at.toISOString(),
+      updated_at: product.updated_at.toISOString(),
     };
   } catch (error) {
     console.error(`Error getting product by slug ${slug}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new product
+ */
+export const createProduct = async (
+  request: CreateProductRequest
+): Promise<Product> => {
+  try {
+    const product = await prisma.product.create({
+      data: {
+        name: request.name,
+        slug: request.slug,
+        description: request.description,
+        category: request.category,
+        version: request.version,
+        is_active: request.is_active,
+        is_beta: request.is_beta,
+        base_price: request.base_price,
+        usage_based: request.usage_based,
+        features: request.features,
+        limits: request.limits,
+        extended_documentation: request.extended_documentation,
+      },
+    });
+
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      category: product.category,
+      version: product.version,
+      is_active: product.is_active,
+      is_beta: product.is_beta,
+      base_price: product.base_price ?? undefined,
+      usage_based: product.usage_based,
+      features: (product.features as string[]) || [],
+      limits: (product.limits as Record<string, any>) || {},
+      extended_documentation: product.extended_documentation || "",
+      created_at: product.created_at.toISOString(),
+      updated_at: product.updated_at.toISOString(),
+    };
+  } catch (error) {
+    console.error("Error creating product:", error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing product
+ */
+export const updateProduct = async (
+  slug: string,
+  updates: UpdateProductRequest
+): Promise<Product> => {
+  try {
+    const product = await prisma.product.update({
+      where: { slug },
+      data: {
+        name: updates.name,
+        description: updates.description,
+        version: updates.version,
+        is_active: updates.is_active,
+        is_beta: updates.is_beta,
+        base_price: updates.base_price,
+        usage_based: updates.usage_based,
+        features: updates.features,
+        limits: updates.limits,
+        extended_documentation: updates.extended_documentation,
+        is_public: updates.is_public,
+        release_notes: updates.release_notes,
+        changelog: updates.changelog,
+        max_downloads: updates.max_downloads,
+      },
+    });
+
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      category: product.category,
+      version: product.version,
+      is_active: product.is_active,
+      is_beta: product.is_beta,
+      base_price: product.base_price ?? undefined,
+      usage_based: product.usage_based,
+      features: (product.features as string[]) || [],
+      limits: (product.limits as Record<string, any>) || {},
+      extended_documentation: product.extended_documentation || "",
+      filename: product.filename || undefined,
+      file_path: product.file_path || undefined,
+      file_size: product.file_size || undefined,
+      file_hash: product.file_hash || undefined,
+      content_type: product.content_type || undefined,
+      is_public: product.is_public,
+      release_notes: product.release_notes || undefined,
+      changelog: product.changelog || undefined,
+      max_downloads: product.max_downloads || undefined,
+      created_at: product.created_at.toISOString(),
+      updated_at: product.updated_at.toISOString(),
+    };
+  } catch (error) {
+    console.error("Error updating product:", error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a product
+ */
+export const deleteProduct = async (
+  slug: string
+): Promise<void> => {
+  try {
+    await prisma.product.delete({
+      where: { slug },
+    });
+    console.log(`✅ Deleted product with slug: ${slug}`);
+  } catch (error) {
+    console.error(
+      `❌ Failed to delete product: ${slug}`,
+      error
+    );
     throw error;
   }
 };
@@ -319,16 +504,16 @@ export const registerSiteProduct = async (
   request: RegisterSiteProductRequest
 ): Promise<SiteProduct> => {
   try {
-    // Find the ecosystem product
-    const ecosystemProduct = await prisma.ecosystemProduct.findUnique({
+    // Find the product
+    const product = await prisma.product.findUnique({
       where: { slug: request.product_slug },
     });
 
-    if (!ecosystemProduct) {
+    if (!product) {
       throw new Error(`Product not found: ${request.product_slug}`);
     }
 
-    if (!ecosystemProduct.is_active) {
+    if (!product.is_active) {
       throw new Error(`Product is not active: ${request.product_slug}`);
     }
 
@@ -337,7 +522,7 @@ export const registerSiteProduct = async (
       where: {
         site_id_product_id: {
           site_id: siteId,
-          product_id: ecosystemProduct.id,
+          product_id: product.id,
         },
       },
     });
@@ -352,7 +537,7 @@ export const registerSiteProduct = async (
     const siteProduct = await prisma.siteProduct.create({
       data: {
         site_id: siteId,
-        product_id: ecosystemProduct.id,
+        product_id: product.id,
         config: request.config || {},
         is_enabled: true,
       },
@@ -362,13 +547,43 @@ export const registerSiteProduct = async (
     });
 
     return {
-      ...siteProduct,
+      id: siteProduct.id,
+      site_id: siteProduct.site_id,
+      product_id: siteProduct.product_id,
+      is_enabled: siteProduct.is_enabled,
+      enabled_at: siteProduct.enabled_at.toISOString(),
+      disabled_at: siteProduct.disabled_at?.toISOString(),
+      config: (siteProduct.config as Record<string, any>) || {},
+      usage_limits: (siteProduct.usage_limits as Record<string, any>) || {},
+      last_used_at: siteProduct.last_used_at?.toISOString(),
+      usage_count: siteProduct.usage_count,
+      created_at: siteProduct.created_at.toISOString(),
+      updated_at: siteProduct.updated_at.toISOString(),
       product: {
-        ...siteProduct.product,
+        id: siteProduct.product.id,
+        name: siteProduct.product.name,
+        slug: siteProduct.product.slug,
+        description: siteProduct.product.description,
+        category: siteProduct.product.category,
+        version: siteProduct.product.version,
+        is_active: siteProduct.product.is_active,
+        is_beta: siteProduct.product.is_beta,
+        base_price: siteProduct.product.base_price ?? undefined,
+        usage_based: siteProduct.product.usage_based,
         features: (siteProduct.product.features as string[]) || [],
         limits: (siteProduct.product.limits as Record<string, any>) || {},
-        extended_documentation:
-          (siteProduct.product.extended_documentation as string) || "",
+        extended_documentation: siteProduct.product.extended_documentation || "",
+        filename: siteProduct.product.filename ?? undefined,
+        file_path: siteProduct.product.file_path ?? undefined,
+        file_size: siteProduct.product.file_size ?? undefined,
+        file_hash: siteProduct.product.file_hash ?? undefined,
+        content_type: siteProduct.product.content_type ?? undefined,
+        is_public: siteProduct.product.is_public ?? false,
+        release_notes: siteProduct.product.release_notes ?? undefined,
+        changelog: siteProduct.product.changelog ?? undefined,
+        max_downloads: siteProduct.product.max_downloads ?? undefined,
+        created_at: siteProduct.product.created_at.toISOString(),
+        updated_at: siteProduct.product.updated_at.toISOString(),
       },
     };
   } catch (error) {
@@ -419,12 +634,12 @@ export const updateSiteProduct = async (
   updates: UpdateSiteProductRequest
 ): Promise<SiteProduct> => {
   try {
-    // Find the ecosystem product
-    const ecosystemProduct = await prisma.ecosystemProduct.findUnique({
+    // Find the product
+    const product = await prisma.product.findUnique({
       where: { slug: productSlug },
     });
 
-    if (!ecosystemProduct) {
+    if (!product) {
       throw new Error(`Product not found: ${productSlug}`);
     }
 
@@ -448,7 +663,7 @@ export const updateSiteProduct = async (
       where: {
         site_id_product_id: {
           site_id: siteId,
-          product_id: ecosystemProduct.id,
+          product_id: product.id,
         },
       },
       data: updateData,
@@ -458,15 +673,43 @@ export const updateSiteProduct = async (
     });
 
     return {
-      ...siteProduct,
+      id: siteProduct.id,
+      site_id: siteProduct.site_id,
+      product_id: siteProduct.product_id,
+      is_enabled: siteProduct.is_enabled,
+      enabled_at: siteProduct.enabled_at.toISOString(),
+      disabled_at: siteProduct.disabled_at?.toISOString(),
       config: (siteProduct.config as Record<string, any>) || {},
       usage_limits: (siteProduct.usage_limits as Record<string, any>) || {},
+      last_used_at: siteProduct.last_used_at?.toISOString(),
+      usage_count: siteProduct.usage_count,
+      created_at: siteProduct.created_at.toISOString(),
+      updated_at: siteProduct.updated_at.toISOString(),
       product: {
-        ...siteProduct.product,
+        id: siteProduct.product.id,
+        name: siteProduct.product.name,
+        slug: siteProduct.product.slug,
+        description: siteProduct.product.description,
+        category: siteProduct.product.category,
+        version: siteProduct.product.version,
+        is_active: siteProduct.product.is_active,
+        is_beta: siteProduct.product.is_beta,
+        base_price: siteProduct.product.base_price ?? undefined,
+        usage_based: siteProduct.product.usage_based,
         features: (siteProduct.product.features as string[]) || [],
         limits: (siteProduct.product.limits as Record<string, any>) || {},
-        extended_documentation:
-          (siteProduct.product.extended_documentation as string) || "",
+        extended_documentation: siteProduct.product.extended_documentation || "",
+        filename: siteProduct.product.filename ?? undefined,
+        file_path: siteProduct.product.file_path ?? undefined,
+        file_size: siteProduct.product.file_size ?? undefined,
+        file_hash: siteProduct.product.file_hash ?? undefined,
+        content_type: siteProduct.product.content_type ?? undefined,
+        is_public: siteProduct.product.is_public ?? false,
+        release_notes: siteProduct.product.release_notes ?? undefined,
+        changelog: siteProduct.product.changelog ?? undefined,
+        max_downloads: siteProduct.product.max_downloads ?? undefined,
+        created_at: siteProduct.product.created_at.toISOString(),
+        updated_at: siteProduct.product.updated_at.toISOString(),
       },
     };
   } catch (error) {
@@ -483,12 +726,12 @@ export const unregisterSiteProduct = async (
   productSlug: string
 ): Promise<void> => {
   try {
-    // Find the ecosystem product
-    const ecosystemProduct = await prisma.ecosystemProduct.findUnique({
+    // Find the product
+    const product = await prisma.product.findUnique({
       where: { slug: productSlug },
     });
 
-    if (!ecosystemProduct) {
+    if (!product) {
       throw new Error(`Product not found: ${productSlug}`);
     }
 
@@ -497,7 +740,7 @@ export const unregisterSiteProduct = async (
       where: {
         site_id_product_id: {
           site_id: siteId,
-          product_id: ecosystemProduct.id,
+          product_id: product.id,
         },
       },
     });
@@ -515,17 +758,17 @@ export const siteHasProduct = async (
   productSlug: string
 ): Promise<boolean> => {
   try {
-    const ecosystemProduct = await prisma.ecosystemProduct.findUnique({
+    const product = await prisma.product.findUnique({
       where: { slug: productSlug },
     });
 
-    if (!ecosystemProduct) return false;
+    if (!product) return false;
 
     const siteProduct = await prisma.siteProduct.findUnique({
       where: {
         site_id_product_id: {
           site_id: siteId,
-          product_id: ecosystemProduct.id,
+          product_id: product.id,
         },
       },
     });
@@ -545,16 +788,16 @@ export const trackProductUsage = async (
   productSlug: string
 ): Promise<void> => {
   try {
-    const ecosystemProduct = await prisma.ecosystemProduct.findUnique({
+    const product = await prisma.product.findUnique({
       where: { slug: productSlug },
     });
 
-    if (!ecosystemProduct) return;
+    if (!product) return;
 
     await prisma.siteProduct.updateMany({
       where: {
         site_id: siteId,
-        product_id: ecosystemProduct.id,
+        product_id: product.id,
         is_enabled: true,
       },
       data: {
@@ -571,15 +814,15 @@ export const trackProductUsage = async (
 };
 
 /**
- * Debug function - Get ALL ecosystem products (including inactive)
+ * Debug function - Get ALL products (including inactive)
  */
-export const debugAllEcosystemProducts = async (): Promise<any[]> => {
+export const debugAllProducts = async (): Promise<any[]> => {
   try {
-    const products = await prisma.ecosystemProduct.findMany({
+    const products = await prisma.product.findMany({
       orderBy: [{ created_at: "asc" }],
     });
 
-    console.log("=== ALL ECOSYSTEM PRODUCTS IN DATABASE ===");
+    console.log("=== ALL PRODUCTS IN DATABASE ===");
     products.forEach((product: any, index: number) => {
       console.log(`${index + 1}. ID: ${product.id}`);
       console.log(`   Name: ${product.name}`);
@@ -593,38 +836,25 @@ export const debugAllEcosystemProducts = async (): Promise<any[]> => {
 
     return products;
   } catch (error) {
-    console.error("Error debugging ecosystem products:", error);
+    console.error("Error debugging products:", error);
     throw error;
   }
 };
 
 /**
- * Delete an ecosystem product (admin function)
+ * Delete a product (admin function)
  */
-export const deleteEcosystemProduct = async (
-  identifier: string
+export const deleteProductAdmin = async (
+  slug: string
 ): Promise<void> => {
   try {
-    // Try to parse as ID first, then use as slug
-    const isId =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        identifier
-      );
-
-    if (isId) {
-      await prisma.ecosystemProduct.delete({
-        where: { id: identifier },
-      });
-      console.log(`✅ Deleted ecosystem product with ID: ${identifier}`);
-    } else {
-      await prisma.ecosystemProduct.delete({
-        where: { slug: identifier },
-      });
-      console.log(`✅ Deleted ecosystem product with slug: ${identifier}`);
-    }
+    await prisma.product.delete({
+      where: { slug },
+    });
+    console.log(`✅ Deleted product with slug: ${slug}`);
   } catch (error) {
     console.error(
-      `❌ Failed to delete ecosystem product: ${identifier}`,
+      `❌ Failed to delete product: ${slug}`,
       error
     );
     throw error;
@@ -638,15 +868,15 @@ export const cleanupAndReinitializeProducts = async (): Promise<void> => {
   console.log("🧹 Starting manual cleanup and reinitialization...");
 
   try {
-    // Step 1: Delete all existing ecosystem products
-    console.log("🗑️  Deleting all existing ecosystem products...");
-    await prisma.ecosystemProduct.deleteMany({});
+    // Step 1: Delete all existing products
+    console.log("🗑️  Deleting all existing products...");
+    await prisma.product.deleteMany({});
     console.log("✅ All existing products deleted");
 
     // Step 2: Create fresh products from the array
     console.log("🆕 Creating fresh products...");
-    for (const productData of ECOSYSTEM_PRODUCTS) {
-      await prisma.ecosystemProduct.create({
+    for (const productData of DEFAULT_PRODUCTS) {
+      await prisma.product.create({
         data: {
           ...productData,
           features: productData.features,

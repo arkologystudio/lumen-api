@@ -222,8 +222,8 @@ model EmbeddingJob {
   @@map("embedding_jobs")
 }
 
-// Ecosystem Products (SaaS offerings)
-model EcosystemProduct {
+// Ecosystem Products (SaaS offerings) - now unified with Plugin functionality
+model Product {
   id          String  @id @default(uuid())
   name        String  @unique
   slug        String  @unique // URL-friendly identifier
@@ -242,13 +242,27 @@ model EcosystemProduct {
   limits                 Json? // JSON object with usage limits per tier
   extended_documentation String? // Extended documentation/description for the product
 
+  // File information (for downloadable products)
+  filename     String? // Original filename (e.g., "ai-ready-core.zip")
+  file_path    String? // Path to file in storage
+  file_size    Int? // Size in bytes
+  file_hash    String? // SHA256 hash for integrity
+  content_type String? @default("application/zip") // MIME type
+  is_public    Boolean @default(false) // If true, no license required
+
+  // Release information
+  release_notes String?
+  changelog     String?
+
+  // Download restrictions
+  max_downloads Int? // Max downloads per license (null = unlimited)
+
   // Metadata
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   // Relationships
   site_products SiteProduct[]
-  plugins       Plugin[]
   pricing_tiers PricingTier[]
   licenses      License[]
   downloads     Download[]
@@ -256,7 +270,8 @@ model EcosystemProduct {
   // Indexes
   @@index([category])
   @@index([is_active])
-  @@map("ecosystem_products")
+  @@index([version])
+  @@map("products")
 }
 
 // Junction table for sites and their registered products
@@ -283,8 +298,8 @@ model SiteProduct {
   updated_at DateTime @updatedAt
 
   // Relationships
-  site    Site             @relation(fields: [site_id], references: [id], onDelete: Cascade)
-  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  site    Site    @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
   // Constraints
   @@unique([site_id, product_id])
@@ -330,46 +345,76 @@ model ActivityLog {
   @@map("activity_logs")
 }
 
-// Plugin Files for Download
-model Plugin {
+// Vector Embeddings for Posts
+model PostChunk {
   id         String @id @default(uuid())
-  product_id String
-
-  // Plugin details
-  name        String
-  filename    String // Original filename (e.g., "ai-ready-core.zip")
-  version     String  @default("1.0")
-  description String?
-
-  // File information
-  file_path    String // Path to file in storage
-  file_size    Int // Size in bytes
-  file_hash    String // SHA256 hash for integrity
-  content_type String @default("application/zip") // MIME type
-
-  // Status
-  is_active Boolean @default(true)
-  is_public Boolean @default(false) // If true, no license required
-
-  // Release information
-  release_notes String?
-  changelog     String?
-
-  // Download restrictions
-  max_downloads Int? // Max downloads per license (null = unlimited)
-
+  site_id    String
+  chunk_id   String @unique // Original chunk ID from the service
+  
+  // Post information
+  post_id     Int
+  post_title  String
+  post_url    String
+  chunk_index Int
+  content     String @db.Text
+  
+  // Vector embedding - using pgvector extension
+  embedding   Unsupported("vector")
+  
   // Metadata
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
-
+  
   // Relationships
-  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
-
+  site Site @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  
   // Indexes
+  @@index([site_id])
+  @@index([post_id])
+  @@index([chunk_id])
+  @@index([site_id, post_id])
+  @@map("post_chunks")
+}
+
+// Vector Embeddings for Products  
+model ProductEmbedding {
+  id         String @id @default(uuid())
+  site_id    String
+  product_id Int
+  
+  // Product information
+  title       String
+  url         String
+  brand       String?
+  category    String?
+  price_usd   Float?
+  rating      Float?
+  availability String?
+  
+  // Searchable content and structured data
+  searchable_text String @db.Text
+  structured_data Json?
+  
+  // Vector embedding - using pgvector extension  
+  embedding   Unsupported("vector")
+  
+  // Metadata
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // Relationships
+  site Site @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  
+  // Constraints
+  @@unique([site_id, product_id])
+  
+  // Indexes
+  @@index([site_id])
   @@index([product_id])
-  @@index([is_active])
-  @@index([version])
-  @@map("plugins")
+  @@index([brand])
+  @@index([category])
+  @@index([site_id, category])
+  @@map("product_embeddings")
 }
 
 // User Licenses for Products
@@ -402,7 +447,7 @@ model License {
 
   // Usage tracking and limits
   download_count     Int       @default(0)
-  max_downloads      Int? // Override plugin's max_downloads if set
+  max_downloads      Int? // Override product's max_downloads if set
   query_count        Int       @default(0) // Current period query usage
   max_queries        Int? // Query limit per billing period (null = unlimited)
   query_period_start DateTime  @default(now()) // Start of current query counting period
@@ -422,8 +467,8 @@ model License {
   updated_at DateTime @updatedAt
 
   // Relationships
-  user        User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  product     EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [product_id], references: [id], onDelete: Cascade)
   downloads   Download[]
   query_usage QueryUsage[]
 
@@ -517,7 +562,7 @@ model PricingTier {
   updated_at DateTime @updatedAt
 
   // Relationships
-  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
   // Constraints
   @@unique([product_id, tier_name])
@@ -560,9 +605,9 @@ model Download {
   created_at DateTime @default(now())
 
   // Relationships
-  user    User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  product EcosystemProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  license License          @relation(fields: [license_id], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  license License @relation(fields: [license_id], references: [id], onDelete: Cascade)
 
   // Indexes
   @@index([user_id])
@@ -572,76 +617,4 @@ model Download {
   @@index([started_at])
   @@index([download_token])
   @@map("downloads")
-}
-
-// Vector Embeddings for Posts
-model PostChunk {
-  id         String @id @default(uuid())
-  site_id    String
-  chunk_id   String @unique // Original chunk ID from the service
-  
-  // Post information
-  post_id     Int
-  post_title  String
-  post_url    String
-  chunk_index Int
-  content     String @db.Text
-  
-  // Vector embedding - using pgvector extension
-  embedding   Unsupported("vector")
-  
-  // Metadata
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  
-  // Relationships
-  site Site @relation(fields: [site_id], references: [id], onDelete: Cascade)
-  
-  // Indexes
-  @@index([site_id])
-  @@index([post_id])
-  @@index([chunk_id])
-  @@index([site_id, post_id])
-  @@map("post_chunks")
-}
-
-// Vector Embeddings for Products  
-model ProductEmbedding {
-  id         String @id @default(uuid())
-  site_id    String
-  product_id Int
-  
-  // Product information
-  title       String
-  url         String
-  brand       String?
-  category    String?
-  price_usd   Float?
-  rating      Float?
-  availability String?
-  
-  // Searchable content and structured data
-  searchable_text String @db.Text
-  structured_data Json?
-  
-  // Vector embedding - using pgvector extension  
-  embedding   Unsupported("vector")
-  
-  // Metadata
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  
-  // Relationships
-  site Site @relation(fields: [site_id], references: [id], onDelete: Cascade)
-  
-  // Constraints
-  @@unique([site_id, product_id])
-  
-  // Indexes
-  @@index([site_id])
-  @@index([product_id])
-  @@index([brand])
-  @@index([category])
-  @@index([site_id, category])
-  @@map("product_embeddings")
 }

@@ -1,10 +1,7 @@
 import { embedText } from "./embedding";
 import { TextChunk } from "./textChunking";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/database";
 import { ENV } from "../config/env";
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
 
 interface StoredPostChunk {
   id: string;
@@ -62,30 +59,30 @@ export const upsertPostChunk = async (chunk: TextChunk): Promise<void> => {
       // Convert embedding array to PostgreSQL vector format
       const embeddingVector = `[${embedding.join(",")}]`;
 
-      // Use Prisma to upsert the chunk
-      await prisma.postChunk.upsert({
-        where: {
-          chunk_id: chunk.id,
-        },
-        update: {
-          post_title: chunk.postTitle,
-          post_url: chunk.postUrl,
-          chunk_index: chunk.chunkIndex,
-          content: chunk.content,
-          embedding: embeddingVector as any, // Cast to any for Unsupported type
-          updated_at: new Date(),
-        },
-        create: {
-          chunk_id: chunk.id,
-          site_id: chunk.siteId,
-          post_id: chunk.postId,
-          post_title: chunk.postTitle,
-          post_url: chunk.postUrl,
-          chunk_index: chunk.chunkIndex,
-          content: chunk.content,
-          embedding: embeddingVector as any, // Cast to any for Unsupported type
-        },
+      // Use findFirst/create pattern instead of upsert
+      const existingChunk = await prisma.postChunk.findFirst({
+        where: { chunk_id: chunk.id },
       });
+
+             if (existingChunk) {
+         // Use raw SQL for updating with vector data
+         await prisma.$executeRaw`
+           UPDATE post_chunks 
+           SET post_title = ${chunk.postTitle},
+               post_url = ${chunk.postUrl},
+               chunk_index = ${chunk.chunkIndex},
+               content = ${chunk.content},
+               embedding = ${embeddingVector}::vector,
+               updated_at = NOW()
+           WHERE id = ${existingChunk.id}
+         `;
+       } else {
+         // Use raw SQL for creating with vector data
+         await prisma.$executeRaw`
+           INSERT INTO post_chunks (id, chunk_id, site_id, post_id, post_title, post_url, chunk_index, content, embedding, created_at, updated_at)
+           VALUES (gen_random_uuid(), ${chunk.id}, ${chunk.siteId}, ${chunk.postId}, ${chunk.postTitle}, ${chunk.postUrl}, ${chunk.chunkIndex}, ${chunk.content}, ${embeddingVector}::vector, NOW(), NOW())
+         `;
+       }
 
       console.log(`Upserted post chunk ID: ${chunk.id} into PostgreSQL`);
     } catch (dbError) {
@@ -319,14 +316,13 @@ export const getPostChunksCount = async (siteId: string): Promise<number> => {
   try {
     console.log(`Getting post chunks count for site ${siteId}`);
     
-    const count = await prisma.postChunk.count({
-      where: {
-        site_id: siteId,
-        embedding: {
-          not: null,
-        },
-      },
-    });
+    // Use raw SQL to count chunks with embeddings
+    const result = await prisma.$queryRaw<{count: string}[]>`
+      SELECT COUNT(*)::text as count
+      FROM post_chunks 
+      WHERE site_id = ${siteId} AND embedding IS NOT NULL
+    `;
+    const count = parseInt(result[0]?.count || '0');
 
     return count;
   } catch (error) {

@@ -4,124 +4,85 @@
  */
 
 import { Request, Response } from "express";
-import crypto from "crypto";
-import { PrismaClient } from "@prisma/client";
 import { AuthenticatedRequest } from "../middleware/auth";
+import {
+  InitiateDownloadRequest,
+  InitiateDownloadResponse,
+} from "../types";
 import {
   validateLicense,
   incrementDownloadCount,
 } from "../services/licenseService";
-import { getPluginFileStream, getPluginById } from "../services/pluginService";
-import {
-  InitiateDownloadRequest,
-  InitiateDownloadResponse,
-  DownloadWithTokenRequest,
-} from "../types";
+import { 
+  getProductBySlug 
+} from "../services/ecosystemProductService";
+import { prisma } from "../config/database";
+import * as fs from "fs";
 
-const prisma = new PrismaClient();
-
-// Configuration
-const DOWNLOAD_TOKEN_EXPIRY_MINUTES = 30; // 30 minutes to complete download
+/**
+ * Create a download record in the database
+ */
+const createDownloadRecord = async (
+  userId: string,
+  productId: string,
+  licenseId: string,
+  token: string,
+  userAgent?: string,
+  ipAddress?: string
+) => {
+  return await prisma.download.create({
+    data: {
+      user_id: userId,
+      product_id: productId,
+      license_id: licenseId,
+      download_token: token,
+      token_expires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes
+      user_agent: userAgent,
+      ip_address: ipAddress,
+      status: "initiated",
+    },
+  });
+};
 
 /**
  * Generate a secure download token
  */
 const generateDownloadToken = (): string => {
-  return crypto.randomBytes(32).toString("hex");
+  return require("crypto").randomBytes(32).toString("hex");
 };
 
 /**
- * Create download record
- */
-const createDownloadRecord = async (
-  userId: string,
-  pluginId: string,
-  licenseId: string,
-  downloadToken: string,
-  req: Request
-): Promise<string> => {
-  const tokenExpires = new Date();
-  tokenExpires.setMinutes(
-    tokenExpires.getMinutes() + DOWNLOAD_TOKEN_EXPIRY_MINUTES
-  );
-
-  const download = await prisma.download.create({
-    data: {
-      user_id: userId,
-      plugin_id: pluginId,
-      license_id: licenseId,
-      download_token: downloadToken,
-      token_expires: tokenExpires,
-      ip_address: req.ip || req.connection.remoteAddress || null,
-      user_agent: req.get("User-Agent") || null,
-      referer: req.get("Referer") || null,
-      status: "initiated",
-    },
-  });
-
-  return download.id;
-};
-
-/**
- * POST /api/downloads/initiate
- * Initiate a plugin download with license validation
+ * Initiate a plugin download (creates temporary download token)
  */
 export const initiateDownload = async (
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: "Authentication required",
-      });
-      return;
-    }
+    const userId = req.user!.id;
+    const { product_slug, license_key }: InitiateDownloadRequest = req.body;
 
-    const { plugin_id, license_key }: InitiateDownloadRequest = req.body;
-
-    if (!plugin_id || !license_key) {
+    if (!product_slug || !license_key) {
       res.status(400).json({
         success: false,
-        error: "Plugin ID and license key are required",
+        error: "product_slug and license_key are required",
       });
       return;
     }
 
-    // Get plugin information
-    const plugin = await getPluginById(plugin_id);
-    if (!plugin) {
-      res.status(404).json({
-        success: false,
-        error: "Plugin not found",
-      });
-      return;
-    }
+    // Validate the license
+    const license = await validateLicense(license_key, product_slug);
 
-    if (!plugin.is_active) {
-      res.status(400).json({
-        success: false,
-        error: "Plugin is not available for download",
-      });
-      return;
-    }
-
-    // Validate license
-    const licenseValidation = await validateLicense({
-      license_key,
-      plugin_id,
-    });
-
-    if (!licenseValidation.valid) {
+    if (!license) {
       res.status(403).json({
         success: false,
-        error: licenseValidation.message || "Invalid license",
+        error: "Invalid or expired license",
       });
       return;
     }
 
-    if (!licenseValidation.download_allowed) {
+    // Check download limits
+    if (license.max_downloads && license.download_count >= license.max_downloads) {
       res.status(403).json({
         success: false,
         error: "Download limit exceeded for this license",
@@ -129,19 +90,22 @@ export const initiateDownload = async (
       return;
     }
 
-    if (!licenseValidation.license) {
-      res.status(403).json({
+    // Get the product to access file information
+    const product = await getProductBySlug(product_slug);
+
+    if (!product) {
+      res.status(404).json({
         success: false,
-        error: "License information not available",
+        error: "Product not found",
       });
       return;
     }
 
-    // Verify user owns the license
-    if (licenseValidation.license.user_id !== req.user.id) {
-      res.status(403).json({
+    // Check if product has downloadable content
+    if (!product.file_path || !product.filename) {
+      res.status(400).json({
         success: false,
-        error: "License does not belong to authenticated user",
+        error: "Product does not have downloadable content",
       });
       return;
     }
@@ -150,26 +114,25 @@ export const initiateDownload = async (
     const downloadToken = generateDownloadToken();
 
     // Create download record
-    const downloadId = await createDownloadRecord(
-      req.user.id,
-      plugin_id,
-      licenseValidation.license.id,
+    await createDownloadRecord(
+      userId,
+      product.id,
+      license.id,
       downloadToken,
-      req
+      req.headers["user-agent"],
+      req.ip
     );
-
-    // Generate download URL
-    const downloadUrl = `/api/downloads/file/${downloadToken}`;
 
     const response: InitiateDownloadResponse = {
       success: true,
       download_token: downloadToken,
-      download_url: downloadUrl,
-      expires_at: new Date(
-        Date.now() + DOWNLOAD_TOKEN_EXPIRY_MINUTES * 60 * 1000
-      ).toISOString(),
-      plugin: plugin,
-      message: "Download initiated successfully",
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      plugin: {
+        name: product.name,
+        filename: product.filename || "",
+        file_size: product.file_size || 0,
+        version: product.version,
+      },
     };
 
     res.json(response);
@@ -183,56 +146,33 @@ export const initiateDownload = async (
 };
 
 /**
- * GET /api/downloads/file/:token
- * Download plugin file using temporary token
+ * Download the plugin file using the temporary token
  */
 export const downloadWithToken = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { token } = req.params;
+    const { download_token } = req.params;
 
-    if (!token) {
-      res.status(400).json({
-        success: false,
-        error: "Download token is required",
-      });
-      return;
-    }
-
-    // Find download record by token
+    // Find and validate download record
     const download = await prisma.download.findFirst({
-      where: {
-        download_token: token,
-        status: "initiated",
-      },
+      where: { download_token },
       include: {
-        plugin: true,
+        product: true,
         license: true,
-        user: true,
       },
     });
 
     if (!download) {
       res.status(404).json({
         success: false,
-        error: "Invalid or expired download token",
+        error: "Download token not found",
       });
       return;
     }
 
-    // Check if token has expired
     if (download.token_expires && new Date() > download.token_expires) {
-      // Update download status to failed
-      await prisma.download.update({
-        where: { id: download.id },
-        data: {
-          status: "failed",
-          error_message: "Download token expired",
-        },
-      });
-
       res.status(410).json({
         success: false,
         error: "Download token has expired",
@@ -240,118 +180,102 @@ export const downloadWithToken = async (
       return;
     }
 
-    // Validate license is still active
-    const licenseValidation = await validateLicense({
-      license_key: download.license.license_key,
-      plugin_id: download.plugin_id,
-    });
-
-    if (!licenseValidation.valid || !licenseValidation.download_allowed) {
-      await prisma.download.update({
-        where: { id: download.id },
-        data: {
-          status: "failed",
-          error_message: "License validation failed",
-        },
-      });
-
-      res.status(403).json({
+    if (download.status !== "initiated") {
+      res.status(400).json({
         success: false,
-        error: "License is no longer valid for download",
+        error: "Download already in progress or completed",
       });
       return;
     }
 
-    // Update download status to in_progress
+    // Validate license is still active
+    const license = await validateLicense(download.license.license_key, download.product.slug);
+
+    if (!license) {
+      res.status(403).json({
+        success: false,
+        error: "License is no longer valid",
+      });
+      return;
+    }
+
+    // Check if product has downloadable file
+    if (!download.product.file_path) {
+      res.status(404).json({
+        success: false,
+        error: "Product file not found",
+      });
+      return;
+    }
+
+    // Get file stream
+    const filePath = download.product.file_path;
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({
+        success: false,
+        error: "Product file not found on disk",
+      });
+      return;
+    }
+
+    // Update download status
     await prisma.download.update({
       where: { id: download.id },
-      data: {
-        status: "in_progress",
-      },
+      data: { status: "in_progress" },
     });
 
-    try {
-      // Get plugin file stream
-      const { stream, plugin } = await getPluginFileStream(download.plugin_id);
+    // Set response headers
+    res.setHeader("Content-Type", download.product.content_type || "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${download.product.filename}"`);
+    res.setHeader("Content-Length", download.product.file_size || 0);
 
-      // Set response headers
-      res.setHeader("Content-Type", plugin.content_type);
-      res.setHeader("Content-Length", plugin.file_size);
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${plugin.filename}"`
-      );
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
+    // Create read stream
+    const stream = fs.createReadStream(filePath);
 
-      // Track bytes downloaded
-      let bytesDownloaded = 0;
-
-      stream.on("data", (chunk: Buffer) => {
-        bytesDownloaded += chunk.length;
-      });
-
-      stream.on("end", async () => {
-        // Update download record as completed
-        await prisma.download.update({
-          where: { id: download.id },
-          data: {
-            status: "completed",
-            completed_at: new Date(),
-            bytes_downloaded: bytesDownloaded,
-          },
+    stream.on("error", (error: Error) => {
+      console.error("Error streaming file:", error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: "Error streaming file",
         });
+      }
+    });
 
-        // Increment license download count
-        await incrementDownloadCount(download.license_id);
-      });
+    stream.on("end", async () => {
+      try {
+        // Update download status and increment counter
+        await Promise.all([
+          prisma.download.update({
+            where: { id: download.id },
+            data: {
+              status: "completed",
+              completed_at: new Date(),
+              bytes_downloaded: download.product.file_size,
+            },
+          }),
+          incrementDownloadCount(download.license_id),
+        ]);
+      } catch (error) {
+        console.error("Error updating download completion:", error);
+      }
+    });
 
-      stream.on("error", async (error) => {
-        console.error("Error streaming file:", error);
-
-        // Update download record as failed
-        await prisma.download.update({
-          where: { id: download.id },
-          data: {
-            status: "failed",
-            error_message: "File streaming error",
-            bytes_downloaded: bytesDownloaded,
-          },
-        });
-      });
-
-      // Stream the file
-      stream.pipe(res);
-    } catch (fileError) {
-      console.error("Error accessing plugin file:", fileError);
-
-      // Update download record as failed
-      await prisma.download.update({
-        where: { id: download.id },
-        data: {
-          status: "failed",
-          error_message: "Failed to access plugin file",
-        },
-      });
-
+    // Pipe the file to response
+    stream.pipe(res);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    if (!res.headersSent) {
       res.status(500).json({
         success: false,
-        error: "Failed to access plugin file",
+        error: "Failed to download file",
       });
     }
-  } catch (error) {
-    console.error("Error processing download:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to process download",
-    });
   }
 };
 
 /**
- * GET /api/downloads/history
- * Get user's download history
+ * Get download history for the current user
  */
 export const getDownloadHistory = async (
   req: AuthenticatedRequest,
@@ -366,29 +290,23 @@ export const getDownloadHistory = async (
       return;
     }
 
-    const { page = 1, limit = 20, status } = req.query;
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
-    const offset = (pageNum - 1) * limitNum;
+    const { limit = "20", offset = "0" } = req.query;
+    const limitNum = parseInt(limit as string);
+    const offsetNum = parseInt(offset as string);
 
-    const whereClause: any = { user_id: req.user.id };
-    if (status && typeof status === "string") {
-      whereClause.status = status;
-    }
+    const whereClause = {
+      user_id: req.user.id,
+    };
 
     const [downloads, total] = await Promise.all([
       prisma.download.findMany({
         where: whereClause,
         include: {
-          plugin: {
-            include: {
-              product: true,
-            },
-          },
+          product: true,
           license: true,
         },
         orderBy: { created_at: "desc" },
-        skip: offset,
+        skip: offsetNum,
         take: limitNum,
       }),
       prisma.download.count({ where: whereClause }),
@@ -396,16 +314,13 @@ export const getDownloadHistory = async (
 
     const downloadHistory = downloads.map((download: any) => ({
       id: download.id,
-      plugin: {
-        id: download.plugin.id,
-        name: download.plugin.name,
-        filename: download.plugin.filename,
-        version: download.plugin.version,
-        file_size: download.plugin.file_size,
-        product: {
-          name: download.plugin.product.name,
-          slug: download.plugin.product.slug,
-        },
+      product: {
+        id: download.product.id,
+        name: download.product.name,
+        filename: download.product.filename,
+        version: download.product.version,
+        file_size: download.product.file_size,
+        slug: download.product.slug,
       },
       license_key: download.license.license_key,
       status: download.status,
@@ -418,12 +333,8 @@ export const getDownloadHistory = async (
     res.json({
       success: true,
       downloads: downloadHistory,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum),
-      },
+      total,
+      has_more: total > offsetNum + limitNum,
     });
   } catch (error) {
     console.error("Error getting download history:", error);
@@ -435,35 +346,20 @@ export const getDownloadHistory = async (
 };
 
 /**
- * GET /api/downloads/:downloadId/status
- * Get status of a specific download
+ * Get download status by token
  */
 export const getDownloadStatus = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: "Authentication required",
-      });
-      return;
-    }
-
-    const { downloadId } = req.params;
+    const { token } = req.params;
 
     const download = await prisma.download.findFirst({
-      where: {
-        id: downloadId,
-        user_id: req.user.id,
-      },
+      where: { download_token: token },
       include: {
-        plugin: {
-          include: {
-            product: true,
-          },
-        },
+        product: true,
+        license: true,
       },
     });
 
@@ -484,16 +380,10 @@ export const getDownloadStatus = async (
         completed_at: download.completed_at?.toISOString(),
         bytes_downloaded: download.bytes_downloaded,
         error_message: download.error_message,
-        plugin: {
-          id: download.plugin.id,
-          name: download.plugin.name,
-          filename: download.plugin.filename,
-          version: download.plugin.version,
-          file_size: download.plugin.file_size,
-          product: {
-            name: download.plugin.product.name,
-            slug: download.plugin.product.slug,
-          },
+        product: {
+          name: download.product.name,
+          filename: download.product.filename,
+          file_size: download.product.file_size,
         },
       },
     });

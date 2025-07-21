@@ -6,67 +6,57 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import {
-  createLicense,
   validateLicense,
   getLicenseById,
-  getUserLicenses,
-  getPluginLicenses,
+  getProductLicenses,
+  createLicense,
   updateLicense,
   revokeLicense,
+  getUserLicenses,
   getUserLicenseStats,
   updateExpiredLicenses,
 } from "../services/licenseService";
+import { logActivity } from "../services/activityLogService";
 import {
   CreateLicenseRequest,
   UpdateLicenseRequest,
   ValidateLicenseRequest,
 } from "../types";
-import {
-  logActivityWithRequest,
-  ACTIVITY_TYPES,
-} from "../services/activityLogService";
 
 /**
  * POST /api/licenses
- * Create a new license (admin only)
+ * Create a new license for a user and product
  */
-export const createLicenseController = async (
+export const createLicenseHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
     const licenseRequest: CreateLicenseRequest = req.body;
 
-    if (!licenseRequest.user_id || !licenseRequest.plugin_id) {
+    if (!licenseRequest.user_id || !licenseRequest.product_slug) {
       res.status(400).json({
         success: false,
-        error: "User ID and Plugin ID are required",
+        error: "User ID and product slug are required",
       });
       return;
     }
 
     const license = await createLicense(licenseRequest);
 
-    // Log license creation activity
-    try {
-      await logActivityWithRequest(
-        req,
-        licenseRequest.user_id,
-        ACTIVITY_TYPES.PRODUCT_REGISTERED,
-        `License created for plugin: ${license.plugin?.name}`,
-        {
-          description: `License ${license.license_key} created for plugin ${license.plugin?.name}`,
-          metadata: {
-            license_id: license.id,
-            license_key: license.license_key,
-            license_type: license.license_type,
-            plugin_id: license.plugin_id,
-            plugin_name: license.plugin?.name,
-          },
-        }
-      );
-    } catch (activityError) {
-      console.error("Failed to log license creation activity:", activityError);
+    // Log activity
+    if (license.product) {
+      await logActivity({
+        user_id: license.user_id,
+        activity_type: "license_created",
+        title: `License created for product: ${license.product?.name}`,
+        description: `License ${license.license_key} created for product ${license.product?.name}`,
+        metadata: {
+          product_id: license.product_id,
+          product_name: license.product?.name,
+          license_type: license.license_type,
+        },
+      });
     }
 
     res.status(201).json({
@@ -74,40 +64,57 @@ export const createLicenseController = async (
       license,
       message: "License created successfully",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating license:", error);
-    res.status(400).json({
-      success: false,
-      error:
-        error instanceof Error ? error.message : "Failed to create license",
-    });
+
+    if (error.message?.includes("already exists")) {
+      res.status(409).json({
+        success: false,
+        error: error.message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to create license",
+      });
+    }
   }
 };
 
 /**
  * POST /api/licenses/validate
- * Validate a license key
+ * Validate a license key for a product
  */
-export const validateLicenseController = async (
+export const validateLicenseHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { license_key, plugin_id }: ValidateLicenseRequest = req.body;
+    const { license_key, product_slug }: ValidateLicenseRequest = req.body;
 
-    if (!license_key) {
+    if (!license_key || !product_slug) {
       res.status(400).json({
         success: false,
-        error: "License key is required",
+        error: "license_key and product_slug are required",
       });
       return;
     }
 
-    const validation = await validateLicense({ license_key, plugin_id });
+    const license = await validateLicense(license_key, product_slug);
+
+    if (!license) {
+      res.json({
+        success: true,
+        valid: false,
+        reason: "License not found or invalid",
+      });
+      return;
+    }
 
     res.json({
       success: true,
-      validation,
+      valid: true,
+      license,
     });
   } catch (error) {
     console.error("Error validating license:", error);
@@ -181,7 +188,7 @@ export const getUserLicensesController = async (
     const { include_inactive = "false" } = req.query;
 
     const includeInactive = include_inactive === "true";
-    const licenses = await getUserLicenses(userId, includeInactive);
+    const licenses = await getUserLicenses(userId, includeInactive ? {} : { status: "active" });
 
     res.json({
       success: true,
@@ -217,7 +224,7 @@ export const getMyLicensesController = async (
     const { include_inactive = "false" } = req.query;
     const includeInactive = include_inactive === "true";
 
-    const licenses = await getUserLicenses(req.user.id, includeInactive);
+    const licenses = await getUserLicenses(req.user.id, includeInactive ? {} : { status: "active" });
 
     res.json({
       success: true,
@@ -243,9 +250,8 @@ export const getPluginLicensesController = async (
 ): Promise<void> => {
   try {
     const { pluginId } = req.params;
-    const { status } = req.query;
 
-    const licenses = await getPluginLicenses(pluginId, status as any);
+    const licenses = await getProductLicenses(pluginId);
 
     res.json({
       success: true,
@@ -419,19 +425,28 @@ export const getLicenseByKeyController = async (
     }
 
     const { licenseKey } = req.params;
+    const { product_slug } = req.query;
 
-    const validation = await validateLicense({ license_key: licenseKey });
+    if (!product_slug || typeof product_slug !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: "product_slug query parameter is required",
+      });
+      return;
+    }
 
-    if (!validation.valid || !validation.license) {
+    const license = await validateLicense(licenseKey, product_slug);
+
+    if (!license) {
       res.status(404).json({
         success: false,
-        error: validation.message || "License not found",
+        error: "License not found or invalid",
       });
       return;
     }
 
     // Check if user owns the license
-    if (validation.license.user_id !== req.user.id) {
+    if (license.user_id !== req.user.id) {
       res.status(403).json({
         success: false,
         error: "Access denied",
@@ -439,10 +454,13 @@ export const getLicenseByKeyController = async (
       return;
     }
 
+    // Check download allowance based on license limits
+    const downloadAllowed = !license.max_downloads || license.download_count < license.max_downloads;
+
     res.json({
       success: true,
-      license: validation.license,
-      download_allowed: validation.download_allowed,
+      license,
+      download_allowed: downloadAllowed,
     });
   } catch (error) {
     console.error("Error getting license by key:", error);

@@ -36,7 +36,7 @@ New: PostgreSQL with Prisma ORM
 ### 1. Environment Configuration
 Create a `.env` file with the database URL:
 ```bash
-DATABASE_URL=postgresql://lumen:lumen_password@postgres:5432/lumen?schema=public
+DATABASE_URL= "supabase_url"
 ```
 See `ENV_EXAMPLE.md` for all required variables.
 
