@@ -171,9 +171,9 @@ export const getApiKeyUsage = async (keyId: string): Promise<{
   requests_last_hour: number;
   requests_last_24h: number;
 }> => {
-  const now = new Date();
-  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  // const now = new Date();
+  // const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  // const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   
   // Note: This requires implementing usage tracking in the middleware
   // For now, return placeholder data

@@ -7,6 +7,17 @@ import { verifyUserToken } from "../services/userService";
 import { prisma } from "../config/database";
 import crypto from "crypto";
 
+// Helper function to convert Prisma user object to User interface
+const convertPrismaUserToUser = (prismaUser: any): User => ({
+  id: prismaUser.id,
+  email: prismaUser.email,
+  name: prismaUser.name,
+  created_at: prismaUser.created_at.toISOString(),
+  updated_at: prismaUser.updated_at.toISOString(),
+  is_active: prismaUser.is_active,
+  subscription_tier: prismaUser.subscription_tier
+});
+
 // Legacy interface for backward compatibility
 export interface LegacyAuthPayload {
   jti: string;
@@ -160,7 +171,7 @@ export const scopedApiKeyAuth = (requiredScopes: string[] = []) => {
 
       // Also add user if needed
       if (apiKey.user) {
-        req.user = apiKey.user;
+        req.user = convertPrismaUserToUser(apiKey.user);
       }
 
       next();

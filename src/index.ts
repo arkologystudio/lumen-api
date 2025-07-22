@@ -22,7 +22,7 @@ import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
-import { initializeDefaultProducts } from "./services/ecosystemProductService";
+// import { initializeDefaultProducts } from "./services/ecosystemProductService";
 import { initializeStorage } from "./services/supabaseStorage";
 
 
