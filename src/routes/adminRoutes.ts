@@ -7,8 +7,8 @@ import {
   initializeProductsController,
   initializePricingTiersController,
   initializeCompleteSystemController,
-  getProductsStatusController,
   cleanupEcosystemProductsController,
+  getProductsStatusController,
 } from "../controllers/adminController";
 import {
   dropSiteCollectionController,

@@ -25,6 +25,48 @@ import {
 import { CreateSiteRequest, UpdateSiteRequest } from "../types/index";
 import { EmbedBatchRequest } from "../types/wordpress";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { prisma } from "../config/database";
+
+/**
+ * Helper function to validate site access for API key requests
+ */
+const validateSiteAccessForApiKey = async (siteId: string, apiKey: any) => {
+  // Check if API key is scoped to this specific site
+  if (apiKey.site_id && apiKey.site_id !== siteId) {
+    throw new Error("API key is not authorized for this site");
+  }
+
+  // If API key is user-level (no site_id), verify user owns the site
+  if (!apiKey.site_id) {
+    const site = await prisma.site.findFirst({
+      where: {
+        id: siteId,
+        user_id: apiKey.user_id,
+        is_active: true,
+      },
+    });
+    
+    if (!site) {
+      throw new Error("Site not found or access denied");
+    }
+    
+    return site;
+  }
+
+  // For site-specific API keys, just verify the site exists and is active
+  const site = await prisma.site.findFirst({
+    where: {
+      id: siteId,
+      is_active: true,
+    },
+  });
+
+  if (!site) {
+    throw new Error("Site not found");
+  }
+
+  return site;
+};
 
 /**
  * Create a new site
@@ -211,21 +253,13 @@ export const getSiteStatsController = async (
 };
 
 /**
- * Search posts within a site
+ * Search posts within a site (API key authenticated for plugin use)
  */
 export const searchSiteController = async (
   req: AuthenticatedRequest,
   res: any
 ) => {
   try {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: "Authentication required",
-      });
-      return;
-    }
-
     const { site_id } = req.params;
     const { query, topK }: { query: string; topK?: number } = req.body;
 
@@ -237,12 +271,23 @@ export const searchSiteController = async (
       return;
     }
 
-    // Verify user owns the site
-    const site = await getSiteByIdForUser(site_id, req.user.id);
-    if (!site) {
-      res.status(404).json({
+    // Validate site access for API key
+    if (req.apiKey) {
+      await validateSiteAccessForApiKey(site_id, req.apiKey);
+    } else if (req.user) {
+      // Fallback for user authentication
+      const site = await getSiteByIdForUser(site_id, req.user.id);
+      if (!site) {
+        res.status(404).json({
+          success: false,
+          error: "Site not found or access denied",
+        });
+        return;
+      }
+    } else {
+      res.status(401).json({
         success: false,
-        error: "Site not found or access denied",
+        error: "Authentication required",
       });
       return;
     }
@@ -294,6 +339,12 @@ export const searchSiteController = async (
             "Post content has not been embedded yet. Please embed posts first.",
           code: "POSTS_NOT_EMBEDDED",
         });
+      } else if (error.message.includes("access denied") || error.message.includes("not authorized")) {
+        res.status(403).json({
+          success: false,
+          error: error.message,
+          code: "ACCESS_DENIED",
+        });
       } else {
         res.status(500).json({
           success: false,
@@ -310,33 +361,37 @@ export const searchSiteController = async (
 };
 
 /**
- * Embed content for a site
+ * Embed content for a site (API key authenticated for plugin use)
  */
 export const embedSiteController = async (
   req: AuthenticatedRequest,
   res: any
 ) => {
   try {
-    if (!req.user) {
-      res.status(401).json({
-        success: false,
-        error: "Authentication required",
-      });
-      return;
-    }
-
     const { site_id } = req.params;
     const batchData: EmbedBatchRequest = {
       ...req.body,
       site_id: site_id,
     };
 
-    // Verify user owns the site
-    const site = await getSiteByIdForUser(site_id, req.user.id);
-    if (!site) {
-      res.status(404).json({
+    // Validate site access for API key
+    let site;
+    if (req.apiKey) {
+      site = await validateSiteAccessForApiKey(site_id, req.apiKey);
+    } else if (req.user) {
+      // Fallback for user authentication
+      site = await getSiteByIdForUser(site_id, req.user.id);
+      if (!site) {
+        res.status(404).json({
+          success: false,
+          error: "Site not found or access denied",
+        });
+        return;
+      }
+    } else {
+      res.status(401).json({
         success: false,
-        error: "Site not found or access denied",
+        error: "Authentication required",
       });
       return;
     }
@@ -459,6 +514,17 @@ export const embedSiteController = async (
     // Update site status to failed
     if (req.params.site_id) {
       await updateSiteEmbeddingStatus(req.params.site_id, "failed");
+    }
+
+    if (error instanceof Error) {
+      if (error.message.includes("access denied") || error.message.includes("not authorized")) {
+        res.status(403).json({
+          success: false,
+          error: error.message,
+          code: "ACCESS_DENIED",
+        });
+        return;
+      }
     }
 
     res.status(500).json({

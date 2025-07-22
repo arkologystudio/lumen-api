@@ -16,98 +16,147 @@ import {
 // Predefined products - aligned with licensing guide
 const DEFAULT_PRODUCTS = [
   {
-    name: "Lumen Neural Search API",
-    slug: "lumen-search-api",
-    description:
-      "Complete neural search platform with AI-powered semantic search, vector embeddings, and natural language processing for content and e-commerce.",
+    name: "AI Readiness Analysis",
+    slug: "ai-readiness-analysis",
+    description: "Comprehensive AI readiness assessment for your content. Get insights on optimization opportunities and AI-compatibility.",
+    category: "analysis",
+    version: "1.0",
+    is_active: true,
+    is_beta: true,
+    base_price: 19.0,
+    usage_based: false,
+    features: [
+      "Content structure analysis",
+      "SEO optimization insights",
+      "AI-readiness scoring",
+      "Improvement recommendations",
+      "Competitive analysis",
+      "Progress tracking"
+    ],
+    limits: {
+      free: { sites: 1, analyses_per_month: 10 },
+      pro: { sites: 10, analyses_per_month: 100 },
+      enterprise: { sites: -1, analyses_per_month: -1 }
+    },
+    extended_documentation: "Comprehensive AI readiness assessment for your content with actionable insights.",
+  },
+  {
+    name: "Neural Search - Knowledge",
+    slug: "neural-search-knowledge",
+    description: "AI-powered semantic search for knowledge bases, documentation, and blog content. Transform how users discover information.",
     category: "search",
     version: "1.0",
     is_active: true,
     is_beta: false,
-    base_price: 19.0, // Starting at Standard tier price
+    base_price: 29.0,
     usage_based: true,
     features: [
-      "Semantic search across all content types",
-      "Vector embeddings with pgvector",
+      "Semantic search across all content",
       "Multi-language support",
       "Real-time indexing",
-      "Search analytics and insights",
-      "RESTful API access",
-      "Usage tracking and billing",
-      "Multi-tier licensing system"
+      "Relevance scoring",
+      "Search analytics",
+      "API access"
     ],
     limits: {
-      standard: { sites: 1, queries_per_month: 100, api_access: false },
-      standard_plus: { sites: 1, queries_per_month: 100, api_access: true },
-      premium: { sites: 1, queries_per_month: 2000, api_access: false },
-      premium_plus: { sites: 1, queries_per_month: 2000, api_access: true },
-      enterprise: { sites: 10, queries_per_month: -1, api_access: true }
+      free: { sites: 1, chunks: 5000, searches_per_month: 1000 },
+      pro: { sites: 10, chunks: 100000, searches_per_month: 50000 },
+      enterprise: { sites: -1, chunks: -1, searches_per_month: -1 }
     },
-    extended_documentation: "Complete neural search solution with tiered pricing and comprehensive API access.",
+    extended_documentation: "Advanced semantic search for knowledge discovery and content exploration.",
+  },
+  {
+    name: "Neural Search - Product",
+    slug: "neural-search-product",
+    description: "Advanced e-commerce search with natural language processing. Help customers find exactly what they're looking for.",
+    category: "search",
+    version: "1.0",
+    is_active: true,
+    is_beta: false,
+    base_price: 49.0,
+    usage_based: true,
+    features: [
+      "Natural language product search",
+      "Advanced filtering and faceting",
+      "Visual similarity search",
+      "Recommendation engine",
+      "Inventory-aware results",
+      "Analytics dashboard"
+    ],
+    limits: {
+      free: { sites: 1, products: 1000, searches_per_month: 5000 },
+      pro: { sites: 5, products: 50000, searches_per_month: 100000 },
+      enterprise: { sites: -1, products: -1, searches_per_month: -1 }
+    },
+    extended_documentation: "Powerful e-commerce search with natural language processing and advanced filtering.",
   }
 ];
 
-// Default pricing tiers - matching the licensing guide exactly
+// Default pricing tiers for each product
 const DEFAULT_PRICING_TIERS = [
+  // AI Readiness Analysis Pricing Tiers
   {
-    tier_name: "standard",
-    display_name: "Standard",
-    description: "Basic neural search with human UI access only",
+    product_slug: "ai-readiness-analysis",
+    tier_name: "starter",
+    display_name: "Starter",
+    description: "Basic AI readiness analysis with human UI access only",
     monthly_price: 19.00,
     annual_price: 205.00,
-    max_queries: 100,
+    max_queries: 10,
     max_sites: 1,
     agent_api_access: false,
     extra_site_price: null,
     overage_price: 0.50,
     custom_embedding_markup: null,
     features: [
-      "100 queries per month",
+      "10 analyses per month",
       "1 site included",
       "Human UI access only",
-      "Basic search analytics",
+      "Basic optimization insights",
       "Email support"
     ],
     is_active: true,
     sort_order: 1
   },
   {
-    tier_name: "standard_plus",
-    display_name: "Standard+",
-    description: "Basic neural search with agent/API access",
+    product_slug: "ai-readiness-analysis",
+    tier_name: "starter_plus",
+    display_name: "Starter+",
+    description: "Basic AI readiness analysis with agent/API access",
     monthly_price: 24.00,
     annual_price: 259.00,
-    max_queries: 100,
+    max_queries: 10,
     max_sites: 1,
     agent_api_access: true,
     extra_site_price: null,
     overage_price: 0.50,
     custom_embedding_markup: null,
     features: [
-      "100 queries per month",
-      "1 site included", 
+      "10 analyses per month",
+      "1 site included",
       "Full API access for agents",
-      "Advanced search analytics",
+      "Advanced optimization insights",
       "Priority email support"
     ],
     is_active: true,
     sort_order: 2
   },
   {
-    tier_name: "premium",
-    display_name: "Premium",
-    description: "Advanced neural search with higher limits",
-    monthly_price: 49.00,
-    annual_price: 529.00,
-    max_queries: 2000,
-    max_sites: 1,
+    product_slug: "ai-readiness-analysis",
+    tier_name: "professional",
+    display_name: "Professional",
+    description: "Professional AI readiness analysis for multiple sites",
+    monthly_price: 39.00,
+    annual_price: 421.00,
+    max_queries: 50,
+    max_sites: 3,
     agent_api_access: false,
-    extra_site_price: null,
+    extra_site_price: 15.00,
     overage_price: 0.50,
     custom_embedding_markup: null,
     features: [
-      "2,000 queries per month",
-      "1 site included",
+      "50 analyses per month",
+      "3 sites included",
       "Human UI access only",
       "Advanced analytics dashboard",
       "Priority support"
@@ -116,20 +165,21 @@ const DEFAULT_PRICING_TIERS = [
     sort_order: 3
   },
   {
-    tier_name: "premium_plus", 
-    display_name: "Premium+",
-    description: "Advanced neural search with agent/API access",
-    monthly_price: 59.00,
-    annual_price: 637.00,
-    max_queries: 2000,
-    max_sites: 1,
+    product_slug: "ai-readiness-analysis",
+    tier_name: "professional_plus",
+    display_name: "Professional+",
+    description: "Professional AI readiness analysis with agent/API access",
+    monthly_price: 49.00,
+    annual_price: 529.00,
+    max_queries: 50,
+    max_sites: 3,
     agent_api_access: true,
-    extra_site_price: null,
+    extra_site_price: 15.00,
     overage_price: 0.50,
     custom_embedding_markup: null,
     features: [
-      "2,000 queries per month",
-      "1 site included",
+      "50 analyses per month",
+      "3 sites included",
       "Full API access for agents",
       "Advanced analytics dashboard",
       "Priority support",
@@ -139,11 +189,132 @@ const DEFAULT_PRICING_TIERS = [
     sort_order: 4
   },
   {
+    product_slug: "ai-readiness-analysis",
     tier_name: "enterprise",
-    display_name: "Enterprise", 
+    display_name: "Enterprise",
+    description: "Unlimited AI readiness analysis with full features",
+    monthly_price: 99.00,
+    annual_price: 1069.00,
+    max_queries: null, // Unlimited
+    max_sites: 10,
+    agent_api_access: true,
+    extra_site_price: 15.00,
+    overage_price: null, // No overages for unlimited
+    custom_embedding_markup: null,
+    features: [
+      "Unlimited analyses",
+      "10 sites included",
+      "Full API access for agents",
+      "Custom analysis models",
+      "Dedicated support",
+      "SLA guarantees",
+      "Custom integrations"
+    ],
+    is_active: true,
+    sort_order: 5
+  },
+
+  // Neural Search - Knowledge Pricing Tiers
+  {
+    product_slug: "neural-search-knowledge",
+    tier_name: "basic",
+    display_name: "Basic",
+    description: "Basic neural search for knowledge bases",
+    monthly_price: 29.00,
+    annual_price: 313.00,
+    max_queries: 1000,
+    max_sites: 1,
+    agent_api_access: false,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "1,000 queries per month",
+      "1 site included",
+      "Human UI access only",
+      "Basic search analytics",
+      "Email support"
+    ],
+    is_active: true,
+    sort_order: 1
+  },
+  {
+    product_slug: "neural-search-knowledge",
+    tier_name: "basic_plus",
+    display_name: "Basic+",
+    description: "Basic neural search with agent/API access",
+    monthly_price: 39.00,
+    annual_price: 421.00,
+    max_queries: 1000,
+    max_sites: 1,
+    agent_api_access: true,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "1,000 queries per month",
+      "1 site included",
+      "Full API access for agents",
+      "Advanced search analytics",
+      "Priority email support"
+    ],
+    is_active: true,
+    sort_order: 2
+  },
+  {
+    product_slug: "neural-search-knowledge",
+    tier_name: "standard",
+    display_name: "Standard",
+    description: "Standard neural search with higher limits",
+    monthly_price: 59.00,
+    annual_price: 637.00,
+    max_queries: 5000,
+    max_sites: 3,
+    agent_api_access: false,
+    extra_site_price: 15.00,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "5,000 queries per month",
+      "3 sites included",
+      "Human UI access only",
+      "Advanced analytics dashboard",
+      "Priority support"
+    ],
+    is_active: true,
+    sort_order: 3
+  },
+  {
+    product_slug: "neural-search-knowledge",
+    tier_name: "standard_plus",
+    display_name: "Standard+",
+    description: "Standard neural search with agent/API access",
+    monthly_price: 79.00,
+    annual_price: 853.00,
+    max_queries: 5000,
+    max_sites: 3,
+    agent_api_access: true,
+    extra_site_price: 15.00,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "5,000 queries per month",
+      "3 sites included",
+      "Full API access for agents",
+      "Advanced analytics dashboard",
+      "Priority support",
+      "Webhook integrations"
+    ],
+    is_active: true,
+    sort_order: 4
+  },
+  {
+    product_slug: "neural-search-knowledge",
+    tier_name: "enterprise",
+    display_name: "Enterprise",
     description: "Unlimited neural search with full features",
-    monthly_price: 199.00,
-    annual_price: 2149.00,
+    monthly_price: 149.00,
+    annual_price: 1609.00,
     max_queries: null, // Unlimited
     max_sites: 10,
     agent_api_access: true,
@@ -152,6 +323,131 @@ const DEFAULT_PRICING_TIERS = [
     custom_embedding_markup: 0.15, // 15% markup
     features: [
       "Unlimited queries",
+      "10 sites included",
+      "Full API access for agents",
+      "Custom embedding models",
+      "Dedicated support",
+      "SLA guarantees",
+      "Custom integrations"
+    ],
+    is_active: true,
+    sort_order: 5
+  },
+
+  // Neural Search - Product Pricing Tiers
+  {
+    product_slug: "neural-search-product",
+    tier_name: "essential",
+    display_name: "Essential",
+    description: "Essential e-commerce search for small catalogs",
+    monthly_price: 49.00,
+    annual_price: 529.00,
+    max_queries: 5000,
+    max_sites: 1,
+    agent_api_access: false,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "5,000 queries per month",
+      "1,000 products",
+      "1 site included",
+      "Human UI access only",
+      "Basic product analytics",
+      "Email support"
+    ],
+    is_active: true,
+    sort_order: 1
+  },
+  {
+    product_slug: "neural-search-product",
+    tier_name: "essential_plus",
+    display_name: "Essential+",
+    description: "Essential e-commerce search with agent/API access",
+    monthly_price: 69.00,
+    annual_price: 745.00,
+    max_queries: 5000,
+    max_sites: 1,
+    agent_api_access: true,
+    extra_site_price: null,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "5,000 queries per month",
+      "1,000 products",
+      "1 site included",
+      "Full API access for agents",
+      "Advanced product analytics",
+      "Priority email support"
+    ],
+    is_active: true,
+    sort_order: 2
+  },
+  {
+    product_slug: "neural-search-product",
+    tier_name: "growth",
+    display_name: "Growth",
+    description: "Growth e-commerce search for expanding catalogs",
+    monthly_price: 99.00,
+    annual_price: 1069.00,
+    max_queries: 25000,
+    max_sites: 3,
+    agent_api_access: false,
+    extra_site_price: 15.00,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "25,000 queries per month",
+      "10,000 products",
+      "3 sites included",
+      "Human UI access only",
+      "Advanced analytics dashboard",
+      "Priority support"
+    ],
+    is_active: true,
+    sort_order: 3
+  },
+  {
+    product_slug: "neural-search-product",
+    tier_name: "growth_plus",
+    display_name: "Growth+",
+    description: "Growth e-commerce search with agent/API access",
+    monthly_price: 129.00,
+    annual_price: 1393.00,
+    max_queries: 25000,
+    max_sites: 3,
+    agent_api_access: true,
+    extra_site_price: 15.00,
+    overage_price: 0.50,
+    custom_embedding_markup: null,
+    features: [
+      "25,000 queries per month",
+      "10,000 products",
+      "3 sites included",
+      "Full API access for agents",
+      "Advanced analytics dashboard",
+      "Priority support",
+      "Webhook integrations"
+    ],
+    is_active: true,
+    sort_order: 4
+  },
+  {
+    product_slug: "neural-search-product",
+    tier_name: "enterprise",
+    display_name: "Enterprise",
+    description: "Unlimited e-commerce search with full features",
+    monthly_price: 249.00,
+    annual_price: 2689.00,
+    max_queries: null, // Unlimited
+    max_sites: 10,
+    agent_api_access: true,
+    extra_site_price: 15.00,
+    overage_price: null, // No overages for unlimited
+    custom_embedding_markup: 0.15, // 15% markup
+    features: [
+      "Unlimited queries",
+      "Unlimited products",
       "10 sites included",
       "Full API access for agents",
       "Custom embedding models",
@@ -204,20 +500,21 @@ export const initializeDefaultPricingTiers = async (): Promise<void> => {
   try {
     console.log("💰 Initializing default pricing tiers...");
     
-    // First, get the main product to link pricing tiers to
-    const mainProduct = await prisma.product.findUnique({
-      where: { slug: "lumen-search-api" }
-    });
-    
-    if (!mainProduct) {
-      throw new Error("Main product 'lumen-search-api' not found. Please initialize products first.");
-    }
-
     for (const tierData of DEFAULT_PRICING_TIERS) {
+      // First, get the product to link pricing tiers to
+      const product = await prisma.product.findUnique({
+        where: { slug: tierData.product_slug }
+      });
+      
+      if (!product) {
+        console.error(`Product '${tierData.product_slug}' not found. Skipping pricing tier: ${tierData.tier_name}`);
+        continue;
+      }
+
       await prisma.pricingTier.upsert({
         where: { 
           product_id_tier_name: {
-            product_id: mainProduct.id,
+            product_id: product.id,
             tier_name: tierData.tier_name
           }
         },
@@ -237,11 +534,24 @@ export const initializeDefaultPricingTiers = async (): Promise<void> => {
           sort_order: tierData.sort_order,
         },
         create: {
-          product_id: mainProduct.id,
-          ...tierData,
+          product_id: product.id,
+          tier_name: tierData.tier_name,
+          display_name: tierData.display_name,
+          description: tierData.description,
+          monthly_price: tierData.monthly_price,
+          annual_price: tierData.annual_price,
+          max_queries: tierData.max_queries,
+          max_sites: tierData.max_sites,
+          agent_api_access: tierData.agent_api_access,
+          extra_site_price: tierData.extra_site_price,
+          overage_price: tierData.overage_price,
+          custom_embedding_markup: tierData.custom_embedding_markup,
+          features: tierData.features,
+          is_active: tierData.is_active,
+          sort_order: tierData.sort_order,
         },
       });
-      console.log(`✅ Pricing tier upserted: ${tierData.display_name}`);
+      console.log(`✅ Pricing tier upserted: ${tierData.display_name} for ${product.name}`);
     }
     
     console.log("✅ Default pricing tiers initialized successfully");

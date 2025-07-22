@@ -4,10 +4,10 @@ import { getAllSites, searchSites } from "../services/siteService";
 import { listSiteCollections } from "../services/multiSiteVectorStore";
 import { prisma } from "../config/database";
 import {
+  getAllProducts,
   initializeDefaultProducts,
   initializeDefaultPricingTiers,
   initializeCompleteSystem,
-  getAllProducts,
   cleanupAndReinitializeProducts,
 } from "../services/ecosystemProductService";
 
@@ -258,7 +258,8 @@ export const initializeCompleteSystemController: RequestHandler = async (
             tier_name: tier.tier_name,
             display_name: tier.display_name,
             monthly_price: tier.monthly_price,
-            agent_api_access: tier.agent_api_access
+            agent_api_access: tier.agent_api_access,
+            product_name: tier.product.name
           }))
         }
       },
@@ -311,7 +312,7 @@ export const getProductsStatusController: RequestHandler = async (
 
 /**
  * Cleanup and reinitialize ecosystem products (admin only)
- * This will DELETE all existing products and recreate them from scratch
+ * This is a one-time fix for cleaning up inconsistent data
  */
 export const cleanupEcosystemProductsController: RequestHandler = async (
   req,
@@ -325,21 +326,20 @@ export const cleanupEcosystemProductsController: RequestHandler = async (
     res.json({
       success: true,
       data: {
-        total_products: products.length,
-        products: products.map(p => ({
-          id: p.id,
+        products_after_cleanup: products.length,
+        products: products.map((p: any) => ({
           name: p.name,
           slug: p.slug,
-          category: p.category
-        }))
+          is_active: p.is_active,
+        })),
       },
-      message: "Ecosystem products cleaned up and reinitialized successfully",
+      message: "Products cleaned up and reinitialized successfully!",
     });
   } catch (error) {
-    console.error("Error cleaning up ecosystem products:", error);
+    console.error("Error during cleanup and reinitialization:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to cleanup ecosystem products",
+      error: "Failed to cleanup and reinitialize products",
     });
   }
 };

@@ -10,6 +10,8 @@ import ecosystemProductRoutes from "./routes/ecosystemProductRoutes";
 
 import activityRoutes from "./routes/activityRoutes";
 import adminActivityRoutes from "./routes/adminActivityRoutes";
+// API Key management routes
+import apiKeyRoutes from "./routes/apiKeyRoutes";
 // Licensing routes
 import licenseRoutes from "./routes/licenseRoutes";
 import downloadRoutes from "./routes/downloadRoutes";
@@ -75,6 +77,9 @@ app.use("/api/users", activityRoutes);
 
 // Admin activity routes (API key protected)
 app.use("/api/admin", adminActivityRoutes);
+
+// API Key management routes (user authentication required)
+app.use("/api/api-keys", apiKeyRoutes);
 
 // ── LICENSING SYSTEM ROUTES ─────────────────────────────────────────────────
 // License management routes

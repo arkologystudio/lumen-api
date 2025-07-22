@@ -14,6 +14,7 @@ import {
   getUserLicensesController,
   getMyLicensesController,
   getPluginLicensesController,
+  getMyLicenseStatsController,
 } from "../controllers/licenseController";
 
 const router = Router();
@@ -23,6 +24,7 @@ router.post("/validate", validateLicenseHandler);
 
 // User license endpoints (require authentication)
 router.get("/me", authenticateUser, getMyLicensesController);
+router.get("/me/stats", authenticateUser, getMyLicenseStatsController);
 router.get("/:id", authenticateUser, getLicenseController);
 router.put("/:id", authenticateUser, updateLicenseController);
 

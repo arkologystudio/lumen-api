@@ -8,25 +8,30 @@ import {
   searchSiteController,
   embedSiteController,
 } from "../controllers/siteController";
-import { authenticateUser } from "../middleware/auth";
+import { authenticateUser, scopedApiKeyAuth } from "../middleware/auth";
 import { searchRateLimiter } from "../middleware/rateLimit";
 
 const router = express.Router();
 
-// ── ALL ROUTES REQUIRE USER AUTHENTICATION ───────────────────────────────
-router.use(authenticateUser);
+// ── SITE MANAGEMENT ROUTES (require user authentication) ──────────────────
+router.post("/", authenticateUser, createSiteController);
+router.get("/:site_id", authenticateUser, getSiteController);
+router.put("/:site_id", authenticateUser, updateSiteController);
+router.delete("/:site_id", authenticateUser, deleteSiteController);
+router.get("/:site_id/stats", authenticateUser, getSiteStatsController);
 
-// ── SITE MANAGEMENT ───────────────────────────────────────────────────────
-router.post("/", createSiteController);
-router.get("/:site_id", getSiteController);
-router.put("/:site_id", updateSiteController);
-router.delete("/:site_id", deleteSiteController);
+// ── PLUGIN ROUTES (require scoped API key authentication) ──────────────────
+// Search endpoint for WordPress plugin visitors
+router.post("/:site_id/search", 
+  scopedApiKeyAuth(['search']), 
+  searchRateLimiter, 
+  searchSiteController
+);
 
-// ── SITE STATISTICS ───────────────────────────────────────────────────────
-router.get("/:site_id/stats", getSiteStatsController);
-
-// ── SITE ACTIONS ──────────────────────────────────────────────────────────
-router.post("/:site_id/search", searchRateLimiter, searchSiteController);
-router.post("/:site_id/embed", embedSiteController);
+// Embed endpoint for WordPress plugin content ingestion
+router.post("/:site_id/embed", 
+  scopedApiKeyAuth(['embed']), 
+  embedSiteController
+);
 
 export default router;

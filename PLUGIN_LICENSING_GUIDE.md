@@ -1,34 +1,94 @@
 # Lumen API Product Pricing & Licensing System Guide
 
-This guide explains the comprehensive pricing structure and licensing system for the Lumen API, including multiple tiers, query tracking, and billing management for unified products (both SaaS features and downloadable content).
+This guide explains the comprehensive pricing structure and licensing system for the Lumen API, including multiple products with their own pricing tiers, query tracking, and billing management for unified products (both SaaS features and downloadable content).
 
 ## Overview
 
 The Lumen API pricing system consists of:
 
-1. **Pricing Tiers** - Six distinct tiers with different features and limits
+1. **Three Core Products** - Each with distinct pricing tiers and features
 2. **Query Tracking** - Real-time usage monitoring and validation
 3. **License Management** - Product-based licensing with flexible billing
 4. **Add-on Services** - Additional sites, query overages, and custom features
 5. **Agent/API Access** - Programmatic access controls for different tiers
 6. **Unified Product Model** - Products can include both SaaS functionality and downloadable files
 
-## Pricing Structure
+## Product Portfolio
 
-### Base Tiers
+### 1. AI Readiness Analysis ($19/month base)
+**Category**: Analysis | **Beta**: Yes
+
+Comprehensive AI readiness assessment for your content with optimization insights and AI-compatibility scoring.
+
+| Tier | Monthly | Annual | Analyses/Month | Sites | Agent/API Access |
+|------|---------|--------|----------------|-------|------------------|
+| **Starter** | $19 | $205 | 10 | 1 | ❌ Human UI only |
+| **Starter+** | $24 | $259 | 10 | 1 | ✅ UI + Agent/API |
+| **Professional** | $39 | $421 | 50 | 3 | ❌ Human UI only |
+| **Professional+** | $49 | $529 | 50 | 3 | ✅ UI + Agent/API |
+| **Enterprise** | $99 | $1,069 | Unlimited | 10 | ✅ UI + Agent/API |
+
+**Features**:
+- Content structure analysis
+- SEO optimization insights  
+- AI-readiness scoring
+- Improvement recommendations
+- Competitive analysis
+- Progress tracking
+
+### 2. Neural Search - Knowledge ($29/month base)
+**Category**: Search | **Beta**: No
+
+AI-powered semantic search for knowledge bases, documentation, and blog content.
 
 | Tier | Monthly | Annual | Queries/Month | Sites | Agent/API Access |
 |------|---------|--------|---------------|-------|------------------|
-| **Standard** | $19 | $205 | 100 | 1 | ❌ Human UI only |
-| **Standard+** | $24 | $259 | 100 | 1 | ✅ UI + Agent/API |
-| **Premium** | $49 | $529 | 2,000 | 1 | ❌ Human UI only |
-| **Premium+** | $59 | $637 | 2,000 | 1 | ✅ UI + Agent/API |
-| **Enterprise** | $199 | $2,149 | Unlimited | 10 | ✅ UI + Agent/API |
+| **Basic** | $29 | $313 | 1,000 | 1 | ❌ Human UI only |
+| **Basic+** | $39 | $421 | 1,000 | 1 | ✅ UI + Agent/API |
+| **Standard** | $59 | $637 | 5,000 | 3 | ❌ Human UI only |
+| **Standard+** | $79 | $853 | 5,000 | 3 | ✅ UI + Agent/API |
+| **Enterprise** | $149 | $1,609 | Unlimited | 10 | ✅ UI + Agent/API |
 
-### Add-ons (Enterprise only)
+**Features**:
+- Semantic search across all content
+- Multi-language support
+- Real-time indexing
+- Relevance scoring
+- Search analytics
+- API access
+
+### 3. Neural Search - Product ($49/month base)
+**Category**: Search | **Beta**: No
+
+Advanced e-commerce search with natural language processing for product discovery.
+
+| Tier | Monthly | Annual | Queries/Month | Products | Sites | Agent/API Access |
+|------|---------|--------|---------------|----------|-------|------------------|
+| **Essential** | $49 | $529 | 5,000 | 1,000 | 1 | ❌ Human UI only |
+| **Essential+** | $69 | $745 | 5,000 | 1,000 | 1 | ✅ UI + Agent/API |
+| **Growth** | $99 | $1,069 | 25,000 | 10,000 | 3 | ❌ Human UI only |
+| **Growth+** | $129 | $1,393 | 25,000 | 10,000 | 3 | ✅ UI + Agent/API |
+| **Enterprise** | $249 | $2,689 | Unlimited | Unlimited | 10 | ✅ UI + Agent/API |
+
+**Features**:
+- Natural language product search
+- Advanced filtering and faceting
+- Visual similarity search
+- Recommendation engine
+- Inventory-aware results
+- Analytics dashboard
+
+## Pricing Structure
+
+### Add-ons (Enterprise tiers only)
 - **Additional Sites**: $15/month per site
-- **Query Overage**: $0.50 per 100 queries (non-Enterprise tiers)
-- **Custom Embedding Models**: 15% markup on base price
+- **Query/Analysis Overage**: $0.50 per 100 queries/analyses (non-Enterprise tiers)
+- **Custom Embedding Models**: 15% markup on base price (Neural Search products only)
+
+### Cross-Product Bundles
+- **Knowledge + Product Bundle**: 15% discount when both Neural Search products are purchased
+- **Complete Suite Bundle**: 20% discount when all three products are purchased
+- **Enterprise Suite**: Custom pricing for enterprise customers needing all products
 
 ## Database Models
 
