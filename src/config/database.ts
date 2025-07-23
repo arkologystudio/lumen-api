@@ -57,6 +57,12 @@ export async function withRetry<T>(
   throw lastError;
 }
 
+// Log connection mode for debugging
+const connectionMode = ENV.DATABASE_URL.includes(':6543') ? 'transaction' : 'session';
+const environmentType = ENV.IS_SERVERLESS ? 'serverless' : 'local';
+
+console.log(`Database connection: ${environmentType} environment using ${connectionMode} mode`);
+
 // Create Prisma client instance with enhanced configuration
 export const prisma =
   globalThis.__prisma ||
@@ -71,6 +77,12 @@ export const prisma =
         url: ENV.DATABASE_URL,
       },
     },
+    // Serverless-optimized configuration
+    ...(ENV.IS_SERVERLESS && {
+      transactionOptions: {
+        timeout: 10000, // 10 seconds timeout for serverless
+      },
+    }),
   });
 
 // Connection health check

@@ -3,6 +3,29 @@ import dotenv from 'dotenv';
 // Load environment variables from .env file
 dotenv.config();
 
+// Helper function to determine the appropriate database URL based on environment
+const getDatabaseUrl = (): string => {
+  const isVercel = !!process.env.VERCEL;
+  const isServerless = isVercel || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.NETLIFY;
+  
+  // For serverless environments, prioritize transaction mode (port 6543)
+  if (isServerless && process.env.DATABASE_URL_TRANSACTION) {
+    return process.env.DATABASE_URL_TRANSACTION;
+  }
+  
+  // For local development, prioritize session mode (port 5432)
+  if (!isServerless && process.env.DATABASE_URL_SESSION) {
+    return process.env.DATABASE_URL_SESSION;
+  }
+  
+  // Fallback to the default DATABASE_URL
+  if (process.env.DATABASE_URL) {
+    return process.env.DATABASE_URL;
+  }
+  
+  throw new Error('No valid DATABASE_URL found. Please set DATABASE_URL, DATABASE_URL_SESSION, or DATABASE_URL_TRANSACTION.');
+};
+
 export const ENV = {
   NODE_ENV: process.env.NODE_ENV,
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL,
@@ -10,8 +33,11 @@ export const ENV = {
   HUGGING_FACE_API_TOKEN: process.env.HUGGING_FACE_API_TOKEN,
   PORT: process.env.PORT || "3000",
   
-  // Database
-  DATABASE_URL: process.env.DATABASE_URL,
+  // Database - Environment-specific URL selection
+  DATABASE_URL: getDatabaseUrl(),
+  DATABASE_URL_SESSION: process.env.DATABASE_URL_SESSION,
+  DATABASE_URL_TRANSACTION: process.env.DATABASE_URL_TRANSACTION,
+  IS_SERVERLESS: !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.NETLIFY,
   
   // Supabase
   SUPABASE_URL: process.env.SUPABASE_URL,

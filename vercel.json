@@ -12,5 +12,13 @@
       "src": "/(.*)",
       "dest": "src/index.ts"
     }
-  ]
+  ],
+  "functions": {
+    "src/index.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "PRISMA_CLI_BINARY_TARGETS": "rhel-openssl-1.0.x"
+  }
 }
