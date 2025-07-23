@@ -1,11 +1,21 @@
 {
   "version": 2,
   "name": "lighthouse-api",
-  "functions": {
-    "src/index.ts": {
-      "maxDuration": 30
+  "builds": [
+    {
+      "src": "src/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
     }
-  },
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/index.ts"
+    }
+  ],
   "env": {
     "PRISMA_CLI_BINARY_TARGETS": "rhel-openssl-1.0.x"
   }
