@@ -116,24 +116,6 @@ export const loginUserController: RequestHandler = async (req, res) => {
 
     const { user, token } = await loginUser(loginData);
 
-    // Log user login activity
-    try {
-      await logActivityWithRequest(
-        req,
-        user.id,
-        ACTIVITY_TYPES.USER_LOGIN,
-        `User logged in: ${user.name}`,
-        {
-          description: `User ${user.name} (${user.email}) logged in successfully`,
-          metadata: {
-            email: user.email,
-            subscription_tier: user.subscription_tier,
-          },
-        }
-      );
-    } catch (activityError) {
-      console.error("Failed to log user login activity:", activityError);
-    }
 
     res.json({
       success: true,

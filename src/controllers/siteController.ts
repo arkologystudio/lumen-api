@@ -22,7 +22,14 @@ import {
   createBatchPostChunks,
   getChunkingStats,
 } from "../services/textChunking";
-import { CreateSiteRequest, UpdateSiteRequest } from "../types/index";
+import {
+  getSiteProducts,
+  registerSiteProduct,
+  updateSiteProduct,
+  unregisterSiteProduct,
+  siteHasProduct,
+} from "../services/ecosystemProductService";
+import { CreateSiteRequest, UpdateSiteRequest, RegisterSiteProductRequest, UpdateSiteProductRequest } from "../types/index";
 import { EmbedBatchRequest } from "../types/wordpress";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { prisma } from "../config/database";
@@ -533,6 +540,241 @@ export const embedSiteController = async (
         error instanceof Error
           ? error.message
           : "Failed to start embedding process",
+    });
+  }
+};
+
+/**
+ * Get products registered for a site
+ */
+export const getSiteProductsController = async (
+  req: AuthenticatedRequest,
+  res: any
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId } = req.params;
+    const { enabled_only } = req.query;
+
+    // Verify user owns the site
+    const site = await getSiteByIdForUser(siteId, req.user.id);
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    const products = await getSiteProducts(siteId);
+
+    // Filter to enabled products only if requested
+    const filteredProducts = enabled_only === 'true' 
+      ? products.filter(p => p.is_enabled)
+      : products;
+
+    res.json({
+      success: true,
+      products: filteredProducts,
+      total: filteredProducts.length,
+    });
+  } catch (error) {
+    console.error("Error getting site products:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get site products",
+    });
+  }
+};
+
+/**
+ * Register a product for a site
+ */
+export const registerSiteProductController = async (
+  req: AuthenticatedRequest,
+  res: any
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId } = req.params;
+    const productData: RegisterSiteProductRequest = req.body;
+
+    if (!productData.product_slug) {
+      res.status(400).json({
+        success: false,
+        error: "Product slug is required",
+      });
+      return;
+    }
+
+    // Verify user owns the site
+    const site = await getSiteByIdForUser(siteId, req.user.id);
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    const siteProduct = await registerSiteProduct(siteId, productData);
+
+    res.status(201).json({
+      success: true,
+      site_product: siteProduct,
+      message: "Product registered successfully for site",
+    });
+  } catch (error) {
+    console.error("Error registering site product:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to register product for site",
+    });
+  }
+};
+
+/**
+ * Update site product configuration
+ */
+export const updateSiteProductController = async (
+  req: AuthenticatedRequest,
+  res: any
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId, productSlug } = req.params;
+    const updateData: UpdateSiteProductRequest = req.body;
+
+    // Verify user owns the site
+    const site = await getSiteByIdForUser(siteId, req.user.id);
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    const updatedSiteProduct = await updateSiteProduct(siteId, productSlug, updateData);
+
+    res.json({
+      success: true,
+      site_product: updatedSiteProduct,
+      message: "Site product updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating site product:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update site product",
+    });
+  }
+};
+
+/**
+ * Unregister a product from a site
+ */
+export const unregisterSiteProductController = async (
+  req: AuthenticatedRequest,
+  res: any
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId, productSlug } = req.params;
+
+    // Verify user owns the site
+    const site = await getSiteByIdForUser(siteId, req.user.id);
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    await unregisterSiteProduct(siteId, productSlug);
+
+    res.json({
+      success: true,
+      message: "Product unregistered from site successfully",
+    });
+  } catch (error) {
+    console.error("Error unregistering site product:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to unregister product from site",
+    });
+  }
+};
+
+/**
+ * Check if a product is active for a site
+ */
+export const getSiteProductStatusController = async (
+  req: AuthenticatedRequest,
+  res: any
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId, productSlug } = req.params;
+
+    // Verify user owns the site
+    const site = await getSiteByIdForUser(siteId, req.user.id);
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    const hasProduct = await siteHasProduct(siteId, productSlug);
+
+    res.json({
+      success: true,
+      has_product: hasProduct,
+      enabled: hasProduct, // If it has the product, it's enabled
+    });
+  } catch (error) {
+    console.error("Error checking site product status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to check product status",
     });
   }
 };

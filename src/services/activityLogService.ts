@@ -17,7 +17,6 @@ import {
 export const ACTIVITY_TYPES = {
   // User activities
   USER_REGISTERED: "user_registered",
-  USER_LOGIN: "user_login",
   USER_PROFILE_UPDATED: "user_profile_updated",
   USER_PASSWORD_CHANGED: "user_password_changed",
 

@@ -8,7 +8,6 @@ import adminRoutes from "./routes/adminRoutes";
 import productRoutes from "./routes/productRoutes";
 import ecosystemProductRoutes from "./routes/ecosystemProductRoutes";
 
-import activityRoutes from "./routes/activityRoutes";
 import adminActivityRoutes from "./routes/adminActivityRoutes";
 // API Key management routes
 import apiKeyRoutes from "./routes/apiKeyRoutes";
@@ -71,10 +70,6 @@ app.use("/api/products", productRoutes);
 // Ecosystem product management routes
 app.use("/api/ecosystem", ecosystemProductRoutes);
 
-// Activity logging routes (protected)
-app.use("/api/users", activityRoutes);
-
-
 // Admin activity routes (API key protected)
 app.use("/api/admin", adminActivityRoutes);
 
@@ -126,7 +121,8 @@ const startServer = async () => {
 ║  🌐 Site Management:       /api/sites                         ║
 ║  🛍️  Product Search:       /api/products                      ║
 ║  🏢 Ecosystem Products:    /api/ecosystem                     ║
-║  📈 Activity Logs:         /api/users/activities              ║
+║  📈 User Activities:       /api/users/activities              ║
+║  📈 Site Activities:       /api/sites/:id/activities         ║
 ║  🔧 Admin Functions:       /api/admin                         ║
 ║  ⚙️  Admin Ecosystem:      /api/admin/ecosystem               ║
 ║  📊 Admin Activities:      /api/admin/activities              ║

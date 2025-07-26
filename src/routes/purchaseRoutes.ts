@@ -14,12 +14,12 @@ import {
 
 const router = Router();
 
-// User purchase endpoints (require authentication)
+// User purchase endpoints (require authentication) - following documented API patterns
 router.post("/simulate", authenticateUser, simulatePurchase);
 router.get("/available", authenticateUser, getAvailableProducts);
-router.get("/history", authenticateUser, getPurchaseHistory);
+router.get("/user/history", authenticateUser, getPurchaseHistory);
 
-// Admin endpoints (require admin API key)
-router.post("/gift", adminKeyAuth, giftLicense);
+// Admin endpoints (require admin API key) - following documented API patterns
+router.post("/admin/gift", adminKeyAuth, giftLicense);
 
 export default router;

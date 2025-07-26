@@ -22,16 +22,18 @@ const router = Router();
 // Public license validation
 router.post("/validate", validateLicenseHandler);
 
-// User license endpoints (require authentication)
-router.get("/me", authenticateUser, getMyLicensesController);
-router.get("/me/stats", authenticateUser, getMyLicenseStatsController);
-router.get("/:id", authenticateUser, getLicenseController);
-router.put("/:id", authenticateUser, updateLicenseController);
+// User license endpoints (require authentication) - following documented API patterns
+router.get("/user", authenticateUser, getMyLicensesController);
+router.get("/user/stats", authenticateUser, getMyLicenseStatsController);
+router.get("/user/:license_id", authenticateUser, getLicenseController);
 
-// Admin license endpoints (require admin API key)
-router.post("/", adminKeyAuth, createLicenseHandler);
+// Admin license endpoints (require admin API key) - following documented API patterns
+router.post("/admin", adminKeyAuth, createLicenseHandler);
+router.put("/admin/:license_id", adminKeyAuth, updateLicenseController);
+router.delete("/admin/:license_id", adminKeyAuth, revokeLicenseController);
+
+// Legacy admin endpoints (for backwards compatibility)
 router.get("/user/:userId", adminKeyAuth, getUserLicensesController);
 router.get("/plugin/:pluginId", adminKeyAuth, getPluginLicensesController);
-router.delete("/:id", adminKeyAuth, revokeLicenseController);
 
 export default router;

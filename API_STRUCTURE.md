@@ -1,4 +1,4 @@
-# Lumen Neural Search API Structure
+# Lighthouse API Structure
 
 ## Overview
 
@@ -1107,7 +1107,7 @@ The Activity Logging system tracks all user actions for the Recent Activity feed
 
 The system tracks these activity types:
 
-- **User Activities**: `user_registered`, `user_login`, `user_profile_updated`, `user_password_changed`
+- **User Activities**: `user_registered`, `user_profile_updated`, `user_password_changed`
 - **Site Activities**: `site_created`, `site_updated`, `site_deleted`, `site_embedded`
 - **Product Activities**: `product_registered`, `product_updated`, `product_unregistered`, `product_used`
 - **Search Activities**: `search_performed`
@@ -1187,7 +1187,6 @@ Authorization: Bearer <jwt_token>
     "total_activities": 25,
     "recent_activity_count": 15,
     "activities_by_type": {
-      "user_login": 8,
       "product_registered": 3,
       "site_created": 2,
       "user_profile_updated": 1

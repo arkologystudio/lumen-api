@@ -5,6 +5,10 @@ import { listSiteCollections } from "../services/multiSiteVectorStore";
 import { prisma } from "../config/database";
 import {
   getAllProducts,
+  getProductBySlug,
+  createProduct,
+  updateProduct,
+  deleteProduct,
   initializeDefaultProducts,
   initializeDefaultPricingTiers,
   initializeCompleteSystem,
@@ -340,6 +344,186 @@ export const cleanupEcosystemProductsController: RequestHandler = async (
     res.status(500).json({
       success: false,
       error: "Failed to cleanup and reinitialize products",
+    });
+  }
+};
+
+/**
+ * Get all ecosystem products (admin only) - including inactive
+ */
+export const getAdminEcosystemProductsController: RequestHandler = async (req, res) => {
+  try {
+    const { include_inactive } = req.query;
+    
+    // Get all products or just active ones based on query parameter
+    const products = await prisma.product.findMany({
+      where: include_inactive === 'true' ? {} : { is_active: true },
+      include: {
+        _count: {
+          select: {
+            site_products: true,
+            licenses: true,
+            downloads: true,
+          },
+        },
+      },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    });
+
+    const productsWithStats = products.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      description: product.description,
+      category: product.category,
+      version: product.version,
+      is_active: product.is_active,
+      is_beta: product.is_beta,
+      base_price: product.base_price ?? undefined,
+      usage_based: product.usage_based,
+      features: (product.features as string[]) || [],
+      limits: (product.limits as Record<string, any>) || {},
+      extended_documentation: product.extended_documentation || "",
+      created_at: product.created_at.toISOString(),
+      updated_at: product.updated_at.toISOString(),
+      stats: {
+        sites_using: product._count.site_products,
+        total_licenses: product._count.licenses,
+        total_downloads: product._count.downloads,
+      },
+    }));
+
+    res.json({
+      success: true,
+      products: productsWithStats,
+      total: productsWithStats.length,
+    });
+  } catch (error) {
+    console.error("Error getting admin ecosystem products:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get ecosystem products",
+    });
+  }
+};
+
+/**
+ * Create a new ecosystem product (admin only)
+ */
+export const createAdminEcosystemProductController: RequestHandler = async (req, res) => {
+  try {
+    const productData = req.body;
+
+    if (!productData.name || !productData.slug || !productData.description || !productData.category) {
+      res.status(400).json({
+        success: false,
+        error: "Name, slug, description, and category are required",
+      });
+      return;
+    }
+
+    // Check if slug already exists
+    const existingProduct = await getProductBySlug(productData.slug);
+    if (existingProduct) {
+      res.status(409).json({
+        success: false,
+        error: "Product with this slug already exists",
+      });
+      return;
+    }
+
+    const newProduct = await createProduct(productData);
+
+    res.status(201).json({
+      success: true,
+      product: newProduct,
+      message: "Ecosystem product created successfully",
+    });
+  } catch (error) {
+    console.error("Error creating ecosystem product:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to create ecosystem product",
+    });
+  }
+};
+
+/**
+ * Update an ecosystem product (admin only)
+ */
+export const updateAdminEcosystemProductController: RequestHandler = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const updateData = req.body;
+
+    // Check if product exists
+    const existingProduct = await getProductBySlug(slug);
+    if (!existingProduct) {
+      res.status(404).json({
+        success: false,
+        error: "Product not found",
+      });
+      return;
+    }
+
+    const updatedProduct = await updateProduct(slug, updateData);
+
+    res.json({
+      success: true,
+      product: updatedProduct,
+      message: "Ecosystem product updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating ecosystem product:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to update ecosystem product",
+    });
+  }
+};
+
+/**
+ * Delete an ecosystem product (admin only)
+ */
+export const deleteAdminEcosystemProductController: RequestHandler = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    // Check if product exists
+    const existingProduct = await getProductBySlug(slug);
+    if (!existingProduct) {
+      res.status(404).json({
+        success: false,
+        error: "Product not found",
+      });
+      return;
+    }
+
+    // Check if product is in use
+    const sitesUsingProduct = await prisma.siteProduct.count({
+      where: { product_id: existingProduct.id },
+    });
+
+    if (sitesUsingProduct > 0) {
+      res.status(409).json({
+        success: false,
+        message: "Cannot delete product that is in use by sites",
+        sites_using_product: sitesUsingProduct,
+      });
+      return;
+    }
+
+    await deleteProduct(slug);
+
+    res.json({
+      success: true,
+      message: "Ecosystem product deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting ecosystem product:", error);
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to delete ecosystem product",
     });
   }
 };

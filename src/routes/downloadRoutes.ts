@@ -15,13 +15,13 @@ import {
 
 const router = Router();
 
-// User download endpoints (require authentication)
+// User download endpoints (require authentication) - following documented API patterns
 router.post("/initiate", authenticateUser, initiateDownload);
-router.get("/history", authenticateUser, getDownloadHistory);
+router.get("/user/history", authenticateUser, getDownloadHistory);
 router.get("/:downloadId/status", authenticateUser, getDownloadStatus);
 
-// Public download endpoint (token-based authentication)
-router.get("/file/:token", downloadWithToken);
+// Public download endpoint (token-based authentication) - following documented API patterns
+router.get("/file/:download_token", downloadWithToken);
 
 // Admin endpoints (require admin API key)
 router.delete("/cleanup-expired", adminKeyAuth, cleanupExpiredDownloads);

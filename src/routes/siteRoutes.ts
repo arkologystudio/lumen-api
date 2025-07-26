@@ -7,7 +7,16 @@ import {
   getSiteStatsController,
   searchSiteController,
   embedSiteController,
+  getSiteProductsController,
+  registerSiteProductController,
+  updateSiteProductController,
+  unregisterSiteProductController,
+  getSiteProductStatusController,
 } from "../controllers/siteController";
+import {
+  getSiteActivitiesController,
+  getSiteActivityStatsController,
+} from "../controllers/activityController";
 import { authenticateUser, scopedApiKeyAuth } from "../middleware/auth";
 import { searchRateLimiter } from "../middleware/rateLimit";
 
@@ -19,6 +28,17 @@ router.get("/:site_id", authenticateUser, getSiteController);
 router.put("/:site_id", authenticateUser, updateSiteController);
 router.delete("/:site_id", authenticateUser, deleteSiteController);
 router.get("/:site_id/stats", authenticateUser, getSiteStatsController);
+
+// ── SITE PRODUCT ROUTES (require user authentication) ──────────────────
+router.get("/:siteId/products", authenticateUser, getSiteProductsController);
+router.post("/:siteId/products", authenticateUser, registerSiteProductController);
+router.put("/:siteId/products/:productSlug", authenticateUser, updateSiteProductController);
+router.delete("/:siteId/products/:productSlug", authenticateUser, unregisterSiteProductController);
+router.get("/:siteId/products/:productSlug/status", authenticateUser, getSiteProductStatusController);
+
+// ── SITE ACTIVITY ROUTES (require user authentication) ─────────────────────
+router.get("/:siteId/activities", authenticateUser, getSiteActivitiesController);
+router.get("/:siteId/activities/stats", authenticateUser, getSiteActivityStatsController);
 
 // ── PLUGIN ROUTES (require scoped API key authentication) ──────────────────
 // Search endpoint for WordPress plugin visitors

@@ -9,6 +9,10 @@ import {
   initializeCompleteSystemController,
   cleanupEcosystemProductsController,
   getProductsStatusController,
+  getAdminEcosystemProductsController,
+  createAdminEcosystemProductController,
+  updateAdminEcosystemProductController,
+  deleteAdminEcosystemProductController,
 } from "../controllers/adminController";
 import {
   dropSiteCollectionController,
@@ -43,5 +47,11 @@ router.post("/products/initialize", initializeProductsController);
 router.post("/pricing-tiers/initialize", initializePricingTiersController);
 router.post("/system/initialize", initializeCompleteSystemController);
 router.post("/products/cleanup", cleanupEcosystemProductsController);
+
+// ── ECOSYSTEM PRODUCT MANAGEMENT ───────────────────────────────────────────
+router.get("/ecosystem/products", getAdminEcosystemProductsController);
+router.post("/ecosystem/products", createAdminEcosystemProductController);
+router.put("/ecosystem/products/:slug", updateAdminEcosystemProductController);
+router.delete("/ecosystem/products/:slug", deleteAdminEcosystemProductController);
 
 export default router;

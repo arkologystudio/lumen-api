@@ -6,6 +6,10 @@ import {
   updateUserProfile,
   getUserSites,
 } from "../controllers/userController";
+import {
+  getUserActivitiesController,
+  getUserActivityStatsController,
+} from "../controllers/activityController";
 import { authenticateUser } from "../middleware/auth";
 
 const router = express.Router();
@@ -18,5 +22,9 @@ router.post("/login", loginUserController);
 router.get("/profile", authenticateUser, getUserProfile);
 router.put("/profile", authenticateUser, updateUserProfile);
 router.get("/sites", authenticateUser, getUserSites);
+
+// ── USER ACTIVITY ROUTES (User Authentication Required) ───────────────────
+router.get("/activities", authenticateUser, getUserActivitiesController);
+router.get("/activities/stats", authenticateUser, getUserActivityStatsController);
 
 export default router;
