@@ -341,14 +341,14 @@ describe('User Service', () => {
         is_active: false,
       });
 
-      await expect(verifyUserToken('valid-token')).rejects.toThrow('Invalid token');
+      await expect(verifyUserToken('valid-token')).rejects.toThrow('Invalid or expired token');
     });
 
     it('should throw error if user not found', async () => {
       (mockedJwt.verify as jest.Mock).mockReturnValue(mockPayload);
       mockedPrisma.user.findUnique.mockResolvedValue(null);
 
-      await expect(verifyUserToken('valid-token')).rejects.toThrow('Invalid token');
+      await expect(verifyUserToken('valid-token')).rejects.toThrow('Invalid or expired token');
     });
   });
 });

@@ -19,6 +19,7 @@ import {
 } from "../controllers/activityController";
 import { authenticateUser, scopedApiKeyAuth } from "../middleware/auth";
 import { searchRateLimiter } from "../middleware/rateLimit";
+import { validateQueryLicense, trackQuery } from "../middleware/queryValidation";
 
 const router = express.Router();
 
@@ -40,11 +41,13 @@ router.get("/:siteId/products/:productSlug/status", authenticateUser, getSitePro
 router.get("/:siteId/activities", authenticateUser, getSiteActivitiesController);
 router.get("/:siteId/activities/stats", authenticateUser, getSiteActivityStatsController);
 
-// ── PLUGIN ROUTES (require scoped API key authentication) ──────────────────
-// Search endpoint for WordPress plugin visitors
+// ── PLUGIN ROUTES (require scoped API key authentication + license validation) ──────────────────
+// Search endpoint for WordPress plugin visitors with license validation
 router.post("/:site_id/search", 
-  scopedApiKeyAuth(['search']), 
-  searchRateLimiter, 
+  scopedApiKeyAuth(['search']),
+  validateQueryLicense('lumen-search-api'),
+  searchRateLimiter,
+  trackQuery(),
   searchSiteController
 );
 

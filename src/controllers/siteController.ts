@@ -308,6 +308,9 @@ export const searchSiteController = async (
 
     // Check if we found any results
     if (similarPosts.length === 0) {
+      // Set results count for tracking
+      (res as any).resultsCount = 0;
+      
       res.json({
         success: true,
         data: {
@@ -321,6 +324,9 @@ export const searchSiteController = async (
       });
       return;
     }
+
+    // Set results count for tracking
+    (res as any).resultsCount = similarPosts.length;
 
     res.json({
       success: true,

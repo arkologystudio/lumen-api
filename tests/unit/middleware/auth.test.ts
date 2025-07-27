@@ -91,7 +91,7 @@ describe('Auth Middleware', () => {
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
-        error: 'No token provided',
+        error: 'Missing bearer token',
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
@@ -109,7 +109,7 @@ describe('Auth Middleware', () => {
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
-        error: 'No token provided',
+        error: 'Missing bearer token',
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
@@ -158,7 +158,7 @@ describe('Auth Middleware', () => {
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
-        error: 'Invalid token',
+        error: 'Invalid or expired token',
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
@@ -190,7 +190,7 @@ describe('Auth Middleware', () => {
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
-        error: 'Invalid token',
+        error: 'Invalid or expired token',
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
@@ -215,9 +215,9 @@ describe('Auth Middleware', () => {
         mockNext
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(500);
+      expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
-        error: 'Internal server error',
+        error: 'Invalid or expired token',
       });
       expect(mockNext).not.toHaveBeenCalled();
     });

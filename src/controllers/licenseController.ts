@@ -470,3 +470,130 @@ export const getLicenseByKeyController = async (
     });
   }
 };
+
+/**
+ * GET /api/licenses/:licenseId/usage
+ * Get license usage details
+ */
+export const getLicenseUsageController = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { licenseId } = req.params;
+
+    const license = await getLicenseById(licenseId);
+    if (!license) {
+      res.status(404).json({
+        success: false,
+        error: "License not found",
+      });
+      return;
+    }
+
+    // Check if user owns the license
+    if (license.user_id !== req.user.id) {
+      res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+      return;
+    }
+
+    const usage = {
+      queries_used: license.query_count,
+      queries_remaining: license.max_queries ? Math.max(0, license.max_queries - license.query_count) : null,
+      query_period_start: license.query_period_start,
+      query_period_end: license.query_period_end,
+      downloads_used: license.download_count,
+      downloads_remaining: license.max_downloads ? Math.max(0, license.max_downloads - license.download_count) : null,
+      sites_used: license.additional_sites + 1, // Base site + additional
+      sites_remaining: Math.max(0, license.max_sites - (license.additional_sites + 1)),
+      agent_access_enabled: license.agent_api_access,
+      custom_embedding_enabled: license.custom_embedding,
+    };
+
+    res.json({
+      success: true,
+      usage,
+    });
+  } catch (error) {
+    console.error("Error getting license usage:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get license usage",
+    });
+  }
+};
+
+/**
+ * POST /api/licenses/admin/:licenseId/reset-usage
+ * Reset query usage for a license (admin only)
+ */
+export const resetLicenseUsageController = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { licenseId } = req.params;
+
+    const license = await getLicenseById(licenseId);
+    if (!license) {
+      res.status(404).json({
+        success: false,
+        error: "License not found",
+      });
+      return;
+    }
+
+    // Reset query usage and period
+    const now = new Date();
+    const updatedLicense = await updateLicense(licenseId, {
+      query_count: 0,
+      query_period_start: now,
+      query_period_end: calculateNextPeriodEnd(now, license.billing_period),
+    });
+
+    res.json({
+      success: true,
+      license: updatedLicense,
+      message: "License usage reset successfully",
+    });
+  } catch (error) {
+    console.error("Error resetting license usage:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to reset license usage",
+    });
+  }
+};
+
+/**
+ * Calculate the next billing period end date
+ */
+function calculateNextPeriodEnd(start: Date, billingPeriod: string): Date {
+  const end = new Date(start);
+  
+  switch (billingPeriod) {
+    case "monthly":
+      end.setMonth(end.getMonth() + 1);
+      break;
+    case "annual":
+      end.setFullYear(end.getFullYear() + 1);
+      break;
+    default:
+      // Default to monthly
+      end.setMonth(end.getMonth() + 1);
+      break;
+  }
+  
+  return end;
+}

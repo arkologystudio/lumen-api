@@ -203,8 +203,13 @@ export const chunkText = (
     // Extract chunk content
     const chunkContent = text.substring(chunkStart, chunkEnd).trim();
 
-    // Only add chunk if it meets minimum size and has content
-    if (chunkContent.length >= config.minChunkSize && chunkContent.length > 0) {
+    // Only add chunk if it has content and meets size requirements
+    // For the last chunk or if text is shorter than minChunkSize, allow smaller chunks to avoid text loss
+    const isLastChunk = chunkEnd >= text.length;
+    const isTextShorterThanMin = text.length < config.minChunkSize;
+    const meetsMinSize = chunkContent.length >= config.minChunkSize;
+    
+    if (chunkContent.length > 0 && (meetsMinSize || isLastChunk || isTextShorterThanMin)) {
       chunks.push({
         content: chunkContent,
         startPosition: chunkStart,
