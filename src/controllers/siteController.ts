@@ -784,3 +784,113 @@ export const getSiteProductStatusController = async (
     });
   }
 };
+
+/**
+ * GET /api/sites/:siteId/credentials
+ * Get WordPress plugin credentials for a site (API key + assigned license)
+ */
+export const getSiteCredentialsController = async (
+  req: AuthenticatedRequest,
+  res: any
+) => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId } = req.params;
+
+    // Verify site belongs to user
+    const site = await getSiteByIdForUser(siteId, req.user.id);
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    // Get API key for this site
+    const apiKey = await prisma.apiKey.findFirst({
+      where: {
+        site_id: siteId,
+        user_id: req.user.id,
+        is_active: true,
+        scopes: {
+          hasSome: ['search'] // Must have search scope
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        key_prefix: true,
+        scopes: true,
+        created_at: true,
+        last_used_at: true
+      }
+    });
+
+    // Get assigned license for this site
+    const assignedLicense = await prisma.license.findFirst({
+      where: {
+        user_id: req.user.id,
+        status: "active",
+        product: {
+          slug: "lumen-search-api"
+        }
+      },
+      include: {
+        product: true
+      }
+    });
+
+    // Filter for license assigned to this site
+    const siteAssignedLicense = assignedLicense && 
+      (assignedLicense.metadata as any)?.assigned_site_id === siteId ? assignedLicense : null;
+
+    res.json({
+      success: true,
+      site: {
+        id: site.id,
+        name: site.name,
+        url: site.url
+      },
+      credentials: {
+        api_key: apiKey ? {
+          id: apiKey.id,
+          name: apiKey.name,
+          key_prefix: apiKey.key_prefix,
+          scopes: apiKey.scopes,
+          created_at: apiKey.created_at,
+          last_used_at: apiKey.last_used_at,
+          note: "Full API key is only shown once during creation"
+        } : null,
+        license: siteAssignedLicense ? {
+          id: siteAssignedLicense.id,
+          license_key: siteAssignedLicense.license_key,
+          license_type: siteAssignedLicense.license_type,
+          status: siteAssignedLicense.status,
+          max_queries: siteAssignedLicense.max_queries,
+          query_count: siteAssignedLicense.query_count,
+          expires_at: siteAssignedLicense.expires_at,
+          assigned_at: (siteAssignedLicense.metadata as any)?.assigned_at
+        } : null
+      },
+      setup_complete: !!(apiKey && siteAssignedLicense),
+      next_steps: apiKey && siteAssignedLicense ? [] : [
+        !apiKey ? "Create an API key for this site" : null,
+        !siteAssignedLicense ? "Assign a license to this site" : null
+      ].filter(Boolean)
+    });
+  } catch (error) {
+    console.error("Error getting site credentials:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get site credentials",
+    });
+  }
+};

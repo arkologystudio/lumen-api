@@ -1,63 +1,100 @@
 # WordPress Plugin Integration Guide
 
-This guide shows how to integrate the Lumen semantic search API with WordPress plugins using the new mixed authentication system.
+This guide shows how to integrate the Lumen semantic search API with WordPress plugins using the complete license assignment system.
 
-## 🔐 Authentication Flow
+## 🔐 Complete Setup Flow
 
-### 1. Site Owner Setup (One-Time)
+### 1. Site Owner Registration and License Purchase
 
 ```bash
-# Step 1: Site owner creates a site in Lumen dashboard
+# Step 1: Site owner registers and purchases license
+POST /api/auth/register
+{
+  "email": "owner@example.com",
+  "password": "password123",
+  "name": "Site Owner"
+}
+
+# Step 2: Purchase license (via frontend/billing)
+POST /api/purchases/simulate
+Authorization: Bearer <jwt-token>
+{
+  "product_slug": "lumen-search-api",
+  "license_type": "standard",
+  "billing_period": "monthly"
+}
+# Response includes license_key: "ABCD-EFGH-IJKL-MNOP"
+
+# Step 3: Create site
 POST /api/sites
-Authorization: Bearer <user-jwt-token>
+Authorization: Bearer <jwt-token>
 {
   "name": "My WordPress Blog",
   "url": "https://myblog.com",
   "description": "Personal tech blog"
 }
+# Response includes site_id: "site-uuid-12345"
+
+# Step 4: Create API key for site
+POST /api/api-keys
+Authorization: Bearer <jwt-token>
+{
+  "name": "WordPress Plugin Key",
+  "site_id": "site-uuid-12345",
+  "scopes": ["search", "embed"]
+}
+# Response includes full API key (shown once only)
+
+# Step 5: Assign license to site
+POST /api/licenses/<license-id>/assign-site
+Authorization: Bearer <jwt-token>
+{
+  "site_id": "site-uuid-12345"
+}
+```
+
+### 2. Get Site Credentials for WordPress
+
+```bash
+# Step 6: Get complete credentials for WordPress plugin
+GET /api/sites/site-uuid-12345/credentials
+Authorization: Bearer <jwt-token>
 
 # Response:
 {
   "success": true,
-  "data": {
+  "site": {
     "id": "site-uuid-12345",
     "name": "My WordPress Blog",
     "url": "https://myblog.com"
-  }
-}
-
-# Step 2: Create API key for WordPress plugin
-POST /api/api-keys
-Authorization: Bearer <user-jwt-token>
-{
-  "name": "WordPress Search Plugin",
-  "site_id": "site-uuid-12345",
-  "scopes": ["search", "embed"]
-}
-
-# Response (API key only shown once!):
-{
-  "success": true,
-  "data": {
-    "api_key": {
-      "id": "key-uuid-67890",
-      "key_prefix": "lm_12345678",
-      "scopes": ["search", "embed"]
-    },
-    "key": "lm_12345678abcdef1234567890abcdef1234567890abcdef1234567890"
   },
-  "message": "Store this key securely - it won't be shown again."
+  "credentials": {
+    "api_key": {
+      "key_prefix": "lm_12345678",
+      "scopes": ["search", "embed"],
+      "note": "Full API key shown once during creation"
+    },
+    "license": {
+      "license_key": "ABCD-EFGH-IJKL-MNOP",
+      "license_type": "standard",
+      "max_queries": 100,
+      "query_count": 0
+    }
+  },
+  "setup_complete": true,
+  "next_steps": []
 }
 ```
 
-### 2. WordPress Plugin Configuration
+### 3. WordPress Plugin Configuration
 
 ```php
 <?php
 // wp-config.php or plugin settings
-define('LUMEN_API_KEY', 'lm_12345678abcdef1234567890abcdef1234567890abcdef1234567890');
-define('LUMEN_SITE_ID', 'site-uuid-12345');
 define('LUMEN_API_URL', 'https://api.lumen.com');
+define('LUMEN_API_KEY', 'lm_12345678abcdef1234567890...');  // From credentials API
+define('LUMEN_LICENSE_KEY', 'ABCD-EFGH-IJKL-MNOP');         // From credentials API
+define('LUMEN_SITE_ID', 'site-uuid-12345');
 ```
 
 ## 🚀 Plugin Implementation
@@ -216,7 +253,8 @@ class LumenSearch {
         $response = wp_remote_post(LUMEN_API_URL . '/api/sites/' . LUMEN_SITE_ID . '/search', [
             'headers' => [
                 'Content-Type' => 'application/json',
-                'x-api-key' => LUMEN_API_KEY
+                'x-api-key' => LUMEN_API_KEY,
+                'x-license-key' => LUMEN_LICENSE_KEY
             ],
             'body' => json_encode([
                 'query' => $query,
@@ -586,12 +624,13 @@ WordPress Plugin (with API key: lm_12345678...)
     ↓
 POST /api/sites/site-uuid-12345/search
 x-api-key: lm_12345678abcdef1234567890abcdef1234567890abcdef1234567890
+x-license-key: ABCD-EFGH-IJKL-MNOP
 {
   "query": "machine learning tutorials",
   "topK": 5
 }
     ↓
-Lumen API validates API key scope ['search']
+Lumen API validates API key scope ['search'] and license key
     ↓
 Vector similarity search in site's content
     ↓

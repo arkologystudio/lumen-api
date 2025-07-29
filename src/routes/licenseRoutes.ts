@@ -17,6 +17,9 @@ import {
   getMyLicenseStatsController,
   getLicenseUsageController,
   resetLicenseUsageController,
+  assignLicenseToSiteController,
+  unassignLicenseFromSiteController,
+  getAvailableLicensesForSiteController,
 } from "../controllers/licenseController";
 
 const router = Router();
@@ -29,6 +32,11 @@ router.get("/my", authenticateUser, getMyLicensesController);
 router.get("/my/stats", authenticateUser, getMyLicenseStatsController);
 router.get("/:license_id", authenticateUser, getLicenseController);
 router.get("/:license_id/usage", authenticateUser, getLicenseUsageController);
+
+// License assignment endpoints
+router.post("/:license_id/assign-site", authenticateUser, assignLicenseToSiteController);
+router.delete("/:license_id/unassign-site", authenticateUser, unassignLicenseFromSiteController);
+router.get("/available-for-site/:site_id", authenticateUser, getAvailableLicensesForSiteController);
 
 // Admin license endpoints (require admin API key) - following documented API patterns
 router.post("/admin", adminKeyAuth, createLicenseHandler);

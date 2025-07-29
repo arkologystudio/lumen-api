@@ -12,6 +12,7 @@ import {
   updateSiteProductController,
   unregisterSiteProductController,
   getSiteProductStatusController,
+  getSiteCredentialsController,
 } from "../controllers/siteController";
 import {
   getSiteActivitiesController,
@@ -29,6 +30,7 @@ router.get("/:site_id", authenticateUser, getSiteController);
 router.put("/:site_id", authenticateUser, updateSiteController);
 router.delete("/:site_id", authenticateUser, deleteSiteController);
 router.get("/:site_id/stats", authenticateUser, getSiteStatsController);
+router.get("/:site_id/credentials", authenticateUser, getSiteCredentialsController);
 
 // ── SITE PRODUCT ROUTES (require user authentication) ──────────────────
 router.get("/:siteId/products", authenticateUser, getSiteProductsController);

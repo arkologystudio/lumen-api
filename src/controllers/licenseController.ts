@@ -5,6 +5,7 @@
 
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { prisma } from "../config/database";
 import {
   validateLicense,
   getLicenseById,
@@ -572,6 +573,248 @@ export const resetLicenseUsageController = async (
     res.status(500).json({
       success: false,
       error: "Failed to reset license usage",
+    });
+  }
+};
+
+/**
+ * POST /api/licenses/:licenseId/assign-site
+ * Assign a license to a specific site
+ */
+export const assignLicenseToSiteController = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { license_id } = req.params;
+    const { site_id } = req.body;
+
+    if (!license_id) {
+      res.status(400).json({
+        success: false,
+        error: "license_id is required",
+      });
+      return;
+    }
+
+    if (!site_id) {
+      res.status(400).json({
+        success: false,
+        error: "site_id is required",
+      });
+      return;
+    }
+
+    // Verify license belongs to user
+    const license = await getLicenseById(license_id);
+    if (!license) {
+      res.status(404).json({
+        success: false,
+        error: "License not found",
+      });
+      return;
+    }
+
+    if (license.user_id !== req.user.id) {
+      res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+      return;
+    }
+
+    // Verify site belongs to user
+    const site = await prisma.site.findFirst({
+      where: {
+        id: site_id,
+        user_id: req.user.id,
+        is_active: true,
+      },
+    });
+
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    // Check if license is already assigned to another site
+    if (license.metadata?.assigned_site_id && license.metadata.assigned_site_id !== site_id) {
+      res.status(400).json({
+        success: false,
+        error: "License is already assigned to another site",
+        current_site: license.metadata.assigned_site_id,
+      });
+      return;
+    }
+
+    // Assign license to site
+    const updatedLicense = await updateLicense(license_id, {
+      metadata: {
+        ...license.metadata,
+        assigned_site_id: site_id,
+        assigned_site_name: site.name,
+        assigned_at: new Date().toISOString(),
+      },
+    });
+
+    res.json({
+      success: true,
+      license: updatedLicense,
+      message: `License assigned to site: ${site.name}`,
+    });
+  } catch (error) {
+    console.error("Error assigning license to site:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to assign license to site",
+    });
+  }
+};
+
+/**
+ * DELETE /api/licenses/:licenseId/unassign-site
+ * Remove site assignment from license
+ */
+export const unassignLicenseFromSiteController = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { licenseId } = req.params;
+
+    // Verify license belongs to user
+    const license = await getLicenseById(licenseId);
+    if (!license) {
+      res.status(404).json({
+        success: false,
+        error: "License not found",
+      });
+      return;
+    }
+
+    if (license.user_id !== req.user.id) {
+      res.status(403).json({
+        success: false,
+        error: "Access denied",
+      });
+      return;
+    }
+
+    // Remove site assignment
+    const updatedLicense = await updateLicense(licenseId, {
+      metadata: {
+        ...license.metadata,
+        assigned_site_id: null,
+        assigned_site_name: null,
+        unassigned_at: new Date().toISOString(),
+      },
+    });
+
+    res.json({
+      success: true,
+      license: updatedLicense,
+      message: "License unassigned from site",
+    });
+  } catch (error) {
+    console.error("Error unassigning license from site:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to unassign license from site",
+    });
+  }
+};
+
+/**
+ * GET /api/licenses/available-for-site/:siteId
+ * Get licenses available for assignment to a specific site
+ */
+export const getAvailableLicensesForSiteController = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: "Authentication required",
+      });
+      return;
+    }
+
+    const { siteId } = req.params;
+
+    // Verify site belongs to user
+    const site = await prisma.site.findFirst({
+      where: {
+        id: siteId,
+        user_id: req.user.id,
+        is_active: true,
+      },
+    });
+
+    if (!site) {
+      res.status(404).json({
+        success: false,
+        error: "Site not found or access denied",
+      });
+      return;
+    }
+
+    // Get all user's licenses for the search product
+    const allLicenses = await getUserLicenses(req.user.id, {
+      product_slug: "lumen-search-api",
+      status: "active",
+    });
+
+    // Filter for available licenses (unassigned or assigned to this site)
+    const availableLicenses = allLicenses.filter(license => {
+      const assignedSiteId = license.metadata?.assigned_site_id;
+      return !assignedSiteId || assignedSiteId === siteId;
+    });
+
+    // Group by assignment status
+    const assignedLicense = availableLicenses.find(
+      license => license.metadata?.assigned_site_id === siteId
+    );
+    const unassignedLicenses = availableLicenses.filter(
+      license => !license.metadata?.assigned_site_id
+    );
+
+    res.json({
+      success: true,
+      site: {
+        id: site.id,
+        name: site.name,
+        url: site.url,
+      },
+      assigned_license: assignedLicense || null,
+      unassigned_licenses: unassignedLicenses,
+      total_available: availableLicenses.length,
+    });
+  } catch (error) {
+    console.error("Error getting available licenses for site:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get available licenses",
     });
   }
 };

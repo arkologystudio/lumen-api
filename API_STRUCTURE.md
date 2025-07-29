@@ -115,14 +115,59 @@ Delete site and all associated data.
 #### GET `/api/sites/:site_id/stats`
 Get detailed site statistics including vector store data.
 
-#### POST `/api/sites/:site_id/search`
-Search within a specific site.
+#### GET `/api/sites/:site_id/credentials`
+Get WordPress plugin credentials for a site (API key + assigned license).
 ```typescript
+// Response
+{
+  success: boolean;
+  site: {
+    id: string;
+    name: string;
+    url: string;
+  };
+  credentials: {
+    api_key: {
+      id: string;
+      name: string;
+      key_prefix: string;
+      scopes: string[];
+      note: string;
+    } | null;
+    license: {
+      id: string;
+      license_key: string;
+      license_type: string;
+      max_queries: number | null;
+      query_count: number;
+      assigned_at: string;
+    } | null;
+  };
+  setup_complete: boolean;
+  next_steps: string[];
+}
+```
+
+#### POST `/api/sites/:site_id/search`
+Search within a specific site with license validation.
+```typescript
+// Headers Required
+x-api-key: string          // Site API key
+x-license-key: string      // Assigned license key (lowercase)
+
 // Request
 {
   query: string;
   topK?: number; // Default: 10
 }
+
+// Response Headers
+X-Query-Usage-Current: string      // Current period query count
+X-Query-Usage-Limit: string        // Query limit ("unlimited" for enterprise)
+X-Query-Usage-Remaining: string    // Remaining queries
+X-Query-Period-End: string         // Period end date
+X-License-Type: string             // License tier
+X-Agent-Access: string             // "true" or "false"
 
 // Response
 {
@@ -160,10 +205,10 @@ Embed content for a site.
 }
 ```
 
-### 🏢 Products (`/api/products`)
+### 🏢 Products (`/api/ecosystem`)
 *Public endpoints for browsing products*
 
-#### GET `/api/products`
+#### GET `/api/ecosystem/products`
 Get all available products.
 ```typescript
 // Query parameters
@@ -177,51 +222,13 @@ Get all available products.
 }
 ```
 
-#### GET `/api/products/:slug`
+#### GET `/api/ecosystem/products/:slug`
 Get specific product details.
 ```typescript
 // Response
 {
   success: boolean;
   product: Product;
-}
-```
-
-#### GET `/api/categories`
-Get available product categories.
-```typescript
-// Response
-{
-  success: boolean;
-  categories: string[];
-  total: number;
-}
-```
-
-### 🏢 Ecosystem Products (`/api/ecosystem`)
-*All endpoints require user authentication*
-
-#### GET `/api/ecosystem/products`
-Get all available ecosystem products.
-```typescript
-// Query parameters
-?category=search  // Optional: filter by category
-
-// Response
-{
-  success: boolean;
-  products: EcosystemProduct[];
-  total: number;
-}
-```
-
-#### GET `/api/ecosystem/products/:slug`
-Get specific ecosystem product details.
-```typescript
-// Response
-{
-  success: boolean;
-  product: EcosystemProduct;
 }
 ```
 
@@ -235,6 +242,9 @@ Get available product categories.
   total: number;
 }
 ```
+
+### 🏗️ Site Product Management (`/api/sites/:siteId/products`)
+*All endpoints require user authentication*
 
 #### GET `/api/sites/:siteId/products`
 Get products registered for a site.
@@ -299,15 +309,15 @@ Check if a product is active for a site.
 }
 ```
 
-### 🎫 Plugin Licensing (`/api/licenses`)
+### 🎫 License Management (`/api/licenses`)
 *User endpoints require user authentication, admin endpoints require API key authentication*
 
-#### GET `/api/licenses/user`
+#### GET `/api/licenses/my`
 Get all licenses for the current user.
 ```typescript
 // Query parameters
 ?status=active  // Optional: filter by license status
-?product_slug=plugin-name  // Optional: filter by product
+?product_slug=lumen-search-api  // Optional: filter by product
 
 // Response
 {
@@ -317,7 +327,51 @@ Get all licenses for the current user.
 }
 ```
 
-#### GET `/api/licenses/user/:license_id`
+#### POST `/api/licenses/:license_id/assign-site`
+Assign a license to a specific site.
+```typescript
+// Request
+{
+  site_id: string;
+}
+
+// Response
+{
+  success: boolean;
+  license: License;
+  message: string;
+}
+```
+
+#### DELETE `/api/licenses/:license_id/unassign-site`
+Remove site assignment from a license.
+```typescript
+// Response
+{
+  success: boolean;
+  license: License;
+  message: string;
+}
+```
+
+#### GET `/api/licenses/available-for-site/:site_id`
+Get licenses available for assignment to a specific site.
+```typescript
+// Response
+{
+  success: boolean;
+  site: {
+    id: string;
+    name: string;
+    url: string;
+  };
+  assigned_license: License | null;
+  unassigned_licenses: License[];
+  total_available: number;
+}
+```
+
+#### GET `/api/licenses/:license_id`
 Get specific license details for the current user.
 ```typescript
 // Response
@@ -327,7 +381,28 @@ Get specific license details for the current user.
 }
 ```
 
-#### GET `/api/licenses/user/stats`
+#### GET `/api/licenses/:license_id/usage`
+Get license usage details.
+```typescript
+// Response
+{
+  success: boolean;
+  usage: {
+    queries_used: number;
+    queries_remaining: number | null;
+    query_period_start: string;
+    query_period_end: string | null;
+    downloads_used: number;
+    downloads_remaining: number | null;
+    sites_used: number;
+    sites_remaining: number;
+    agent_access_enabled: boolean;
+    custom_embedding_enabled: boolean;
+  };
+}
+```
+
+#### GET `/api/licenses/my/stats`
 Get license statistics for the current user.
 ```typescript
 // Response
@@ -893,15 +968,38 @@ interface License {
   user_id: string;
   product_id: string;
   license_key: string;
-  license_type: 'trial' | 'standard' | 'premium' | 'lifetime';
+  license_type: 'trial' | 'standard' | 'standard_plus' | 'premium' | 'premium_plus' | 'enterprise';
   status: 'active' | 'expired' | 'revoked' | 'suspended';
+  billing_period: 'monthly' | 'annual';
+  amount_paid?: number;
+  currency: string;
   issued_at: string;
   expires_at?: string;
+  
+  // Usage tracking
+  query_count: number;
+  max_queries?: number;
+  query_period_start: string;
+  query_period_end?: string;
   download_count: number;
   max_downloads?: number;
+  
+  // Feature permissions
+  agent_api_access: boolean;
+  max_sites: number;
+  additional_sites: number;
+  custom_embedding: boolean;
+  
+  // Assignment metadata
+  metadata?: {
+    assigned_site_id?: string;
+    assigned_site_name?: string;
+    assigned_at?: string;
+    unassigned_at?: string;
+  };
+  
   purchase_reference?: string;
   notes?: string;
-  metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
   user?: User;
