@@ -16,6 +16,8 @@ import licenseRoutes from "./routes/licenseRoutes";
 import downloadRoutes from "./routes/downloadRoutes";
 import purchaseRoutes from "./routes/purchaseRoutes";
 import pricingRoutes from "./routes/pricingRoutes";
+// Diagnostics routes
+import { createDiagnosticsRoutes } from "./routes/diagnostics";
 // Legacy routes for backward compatibility
 import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
@@ -89,6 +91,10 @@ app.use("/api/purchases", purchaseRoutes);
 // Pricing and billing routes (public)
 app.use("/api/pricing", pricingRoutes);
 
+// ── DIAGNOSTICS ROUTES ──────────────────────────────────────────────────────
+// AI-Ready diagnostics dashboard routes
+app.use("/api/v1/diagnostics", createDiagnosticsRoutes());
+
 // ── LEGACY ROUTES (for backward compatibility) ─────────────────────────────
 app.use("/api/embedding", embeddingRoutes);
 
@@ -129,6 +135,7 @@ const startServer = async () => {
 ║  🔐 License Management:    /api/licenses                      ║
 ║  📥 Plugin Downloads:      /api/downloads                     ║
 ║  💰 Purchase Simulation:   /api/purchases                     ║
+║  🔍 AI-Ready Diagnostics:  /api/v1/diagnostics               ║
 ║  📡 Legacy Embedding:      /api/embedding                     ║
 ║                                                               ║
 ║  Ready to power neural search for your websites! 🚀          ║
