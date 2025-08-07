@@ -26,10 +26,20 @@ export class SitemapScanner extends BaseScanner {
         score: 0,
         message: 'No XML sitemap found',
         details: {
-          checkedLocations: [
-            '/sitemap.xml',
-            '/sitemap_index.xml',
-            'robots.txt'
+          contentFound: false,
+          validationIssues: ['No XML sitemap detected'],
+          specificData: {
+            checkedLocations: [
+              '/sitemap.xml',
+              '/sitemap_index.xml',
+              'robots.txt'
+            ]
+          },
+          aiReadinessFactors: [],
+          aiOptimizationOpportunities: [
+            'Create XML sitemap for better content discovery',
+            'Reference sitemap in robots.txt',
+            'Include all important pages in sitemap'
           ]
         },
         recommendation: 'Create an XML sitemap and reference it in robots.txt for better search engine discovery'

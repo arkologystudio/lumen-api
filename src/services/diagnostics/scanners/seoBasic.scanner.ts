@@ -51,7 +51,13 @@ export class SeoBasicScanner extends BaseScanner {
       status,
       score,
       message: this.generateMessage(analysis),
-      details: analysis,
+      details: {
+        contentFound: true,
+        validationScore: score,
+        specificData: analysis,
+        aiReadinessFactors: this.generateAiReadinessFactors(analysis),
+        aiOptimizationOpportunities: this.generateOptimizationOpportunities(analysis, status)
+      },
       recommendation: this.generateRecommendations(analysis)
     });
   }
@@ -272,5 +278,53 @@ export class SeoBasicScanner extends BaseScanner {
     return recommendations.length > 0
       ? recommendations.join('. ')
       : 'SEO elements are well-optimized';
+  }
+
+  private generateAiReadinessFactors(analysis: SeoAnalysis): string[] {
+    const factors: string[] = [];
+    
+    if (analysis.title.exists) {
+      factors.push('Page title provides clear content identification');
+    }
+    
+    if (analysis.metaDescription.exists) {
+      factors.push('Meta description helps AI understand page content');
+    }
+    
+    if (analysis.headings.hasH1) {
+      factors.push('H1 heading provides content structure');
+    }
+    
+    if (analysis.openGraph.hasBasicOg) {
+      factors.push('Open Graph tags enhance social sharing and content understanding');
+    }
+    
+    return factors;
+  }
+
+  private generateOptimizationOpportunities(analysis: SeoAnalysis, status: string): string[] {
+    const opportunities: string[] = [];
+    
+    if (!analysis.title.exists || analysis.title.issue) {
+      opportunities.push('Optimize page title for better content identification');
+    }
+    
+    if (!analysis.metaDescription.exists || analysis.metaDescription.issue) {
+      opportunities.push('Improve meta description for better content summarization');
+    }
+    
+    if (!analysis.headings.hasH1 || analysis.headings.issue) {
+      opportunities.push('Implement proper heading structure for content hierarchy');
+    }
+    
+    if (analysis.openGraph.missingTags.length > 0) {
+      opportunities.push('Add Open Graph tags for enhanced social media and AI understanding');
+    }
+    
+    if (status === 'warn' || status === 'fail') {
+      opportunities.push('Improve overall SEO implementation for better AI discoverability');
+    }
+    
+    return opportunities;
   }
 }

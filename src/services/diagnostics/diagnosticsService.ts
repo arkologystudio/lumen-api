@@ -153,7 +153,16 @@ export class DiagnosticsService {
       await this.updateAuditStatus(auditId, 'scoring');
       
       // Aggregate results
-      const aggregatedResult = this.aggregator.aggregate(auditId, site.url, pageResults);
+      const scanStarted = new Date(startTime);
+      const scanCompleted = new Date();
+      const aggregatedResult = this.aggregator.aggregate(
+        auditId, 
+        site.url, 
+        pageResults, 
+        options.auditType || 'full',
+        scanStarted,
+        scanCompleted
+      );
       
       // Store results in database
       await this.storeResults(auditId, aggregatedResult, crawlResult);
@@ -269,7 +278,16 @@ export class DiagnosticsService {
       console.log(`[Diagnostics] Scanning complete, aggregating results...`);
       
       // Aggregate results without database storage
-      const aggregatedResult = this.aggregator.aggregate(tempAuditId, url, pageResults);
+      const scanStarted = new Date(startTime);
+      const scanCompleted = new Date();
+      const aggregatedResult = this.aggregator.aggregate(
+        tempAuditId, 
+        url, 
+        pageResults, 
+        options.auditType || 'quick',
+        scanStarted,
+        scanCompleted
+      );
       
       console.log(`[Diagnostics] Anonymous scan completed in ${Date.now() - startTime}ms`);
       
@@ -370,7 +388,7 @@ export class DiagnosticsService {
           data: {
             audit_id: auditId,
             page_id: pageRecord.id,
-            indicator_name: indicator.indicatorName,
+            indicator_name: indicator.name,
             category: indicator.category,
             status: indicator.status,
             score: indicator.score,
@@ -424,13 +442,20 @@ export class DiagnosticsService {
     return {
       auditId: audit.id,
       siteUrl: audit.site?.url || 'unknown',
+      auditType: audit.audit_type || 'full',
       pages: audit.pages?.map((page: any) => ({
         url: page.url,
-        indicators: audit.indicators?.filter((i: any) => i.page_id === page.id) || [],
+        title: page.title,
+        indicators: this.convertCachedIndicators(audit.indicators?.filter((i: any) => i.page_id === page.id) || []),
         pageScore: page.page_score || 0,
-        categoryScores: [],
+        categoryScores: this.convertCachedCategoryScores(audit.scores?.filter((s: any) => s.page_id === page.id) || []),
         issues: [],
-        recommendations: []
+        recommendations: [],
+        crawlMetadata: {
+          crawledAt: page.created_at || new Date(),
+          responseTime: 0,
+          statusCode: 200
+        }
       })) || [],
       siteScore: {
         overall: audit.site_score || 0,
@@ -444,25 +469,96 @@ export class DiagnosticsService {
           security: 0
         }
       },
-      categoryScores: audit.scores?.filter((s: any) => s.score_type === 'category')?.map((s: any) => ({
-        category: s.category,
-        score: s.score_value,
-        weight: 1,
-        indicatorCount: s.total_indicators,
-        passedCount: s.passed_indicators,
-        warningCount: s.warning_indicators,
-        failedCount: s.failed_indicators
-      })) || [],
+      categoryScores: this.convertCachedCategoryScores(audit.scores?.filter((s: any) => s.score_type === 'category') || []),
       summary: {
         totalIndicators: audit.indicators?.length || 0,
         passedIndicators: audit.indicators?.filter((i: any) => i.status === 'pass').length || 0,
         warningIndicators: audit.indicators?.filter((i: any) => i.status === 'warn').length || 0,
         failedIndicators: audit.indicators?.filter((i: any) => i.status === 'fail').length || 0,
         criticalIssues: [],
-        topRecommendations: []
+        topRecommendations: [],
+        completionPercentage: 0,
+        aiReadinessPercentage: 0,
+        quickWins: [],
+        strategicImprovements: [],
+        complianceLevel: 'poor',
+        complianceGaps: []
       },
       aiReadiness: audit.ai_readiness || 'poor',
-      accessIntent: audit.access_intent || 'allow'
+      aiReadinessDetails: {
+        score: audit.site_score || 0,
+        maxScore: 10,
+        factors: {
+          hasLlmsTxt: false,
+          hasAgentConfig: false,
+          hasStructuredData: false,
+          hasSeoOptimization: false,
+          hasAccessibleContent: false
+        },
+        missingElements: [],
+        strengthAreas: [],
+        improvementAreas: []
+      },
+      accessIntent: audit.access_intent || 'allow',
+      accessIntentDetails: {
+        intent: audit.access_intent || 'allow',
+        sources: ['cached'],
+        restrictions: [],
+        allowedAgents: ['*'],
+        blockedAgents: []
+      },
+      scanMetadata: {
+        scanStarted: audit.created_at || new Date(),
+        scanCompleted: audit.completed_at || new Date(),
+        duration: 0,
+        pagesCrawled: audit.pages?.length || 0,
+        indicatorsChecked: audit.indicators?.length || 0,
+        version: '2.0',
+        limitations: ['Cached results', 'Limited historical data']
+      }
     };
+  }
+
+  private convertCachedIndicators(cachedIndicators: any[]): any[] {
+    return cachedIndicators.map((indicator: any) => ({
+      name: indicator.indicator_name,
+      displayName: indicator.indicator_name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      description: `${indicator.indicator_name} analysis`,
+      category: indicator.category,
+      status: indicator.status,
+      score: indicator.score || 0,
+      weight: indicator.weight || 1,
+      maxScore: 10,
+      message: indicator.message || '',
+      recommendation: indicator.recommendation,
+      checkedUrl: indicator.checked_url,
+      found: indicator.found || false,
+      isValid: indicator.is_valid || false,
+      details: indicator.details ? JSON.parse(indicator.details as string) : {},
+      scannedAt: indicator.scanned_at || new Date()
+    }));
+  }
+
+  private convertCachedCategoryScores(cachedScores: any[]): any[] {
+    return cachedScores.map((score: any) => ({
+      category: score.category,
+      displayName: score.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+      description: `${score.category} indicators`,
+      score: score.score_value || 0,
+      maxScore: 10,
+      weight: 1,
+      indicatorCount: score.total_indicators || 0,
+      passedCount: score.passed_indicators || 0,
+      warningCount: score.warning_indicators || 0,
+      failedCount: score.failed_indicators || 0,
+      topIssues: [],
+      topRecommendations: [],
+      categoryInsights: {
+        keyStrengths: [],
+        keyWeaknesses: [],
+        quickWins: [],
+        strategicImprovements: []
+      }
+    }));
   }
 }

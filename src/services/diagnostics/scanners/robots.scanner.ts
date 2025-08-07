@@ -47,10 +47,23 @@ export class RobotsScanner extends BaseScanner {
       score: Math.round(combinedScore),
       message: messages.join('; '),
       details: {
-        robotsTxt: robotsTxtAnalysis,
-        robotsMeta: robotsMetaAnalysis,
-        accessIntent,
-        checkedUrl: robotsTxtUrl
+        statusCode: robotsTxtResult.statusCode,
+        contentFound: robotsTxtResult.found,
+        contentPreview: robotsTxtResult.found ? 
+          robotsTxtResult.content?.substring(0, 200) + (robotsTxtResult.content && robotsTxtResult.content.length > 200 ? '...' : '') 
+          : null,
+        validationScore: Math.round(combinedScore),
+        specificData: {
+          robotsTxt: robotsTxtAnalysis,
+          robotsMeta: robotsMetaAnalysis,
+          accessIntent,
+          checkedUrl: robotsTxtUrl,
+          aiAgentRestrictions: robotsTxtAnalysis?.aiUserAgents || [],
+          sitemapReferences: robotsTxtAnalysis?.sitemapCount || 0,
+          hasAiDirectives: robotsTxtAnalysis?.hasAiDirectives || false
+        },
+        aiReadinessFactors: this.generateAiReadinessFactors(robotsTxtAnalysis, robotsMetaAnalysis),
+        aiOptimizationOpportunities: this.generateAiOptimizationOpportunities(robotsTxtAnalysis, robotsMetaAnalysis, accessIntent)
       },
       recommendation: this.generateRecommendation(robotsTxtAnalysis, robotsMetaAnalysis),
       checkedUrl: robotsTxtUrl,
@@ -177,5 +190,53 @@ export class RobotsScanner extends BaseScanner {
     return recommendations.length > 0 
       ? recommendations.join('. ')
       : 'Robots configuration is well-optimized for AI agents';
+  }
+
+  private generateAiReadinessFactors(robotsTxtAnalysis: any, robotsMetaAnalysis: any): string[] {
+    const factors: string[] = [];
+    
+    if (robotsTxtAnalysis?.hasContent) {
+      factors.push('Robots.txt file exists');
+    }
+    
+    if (robotsTxtAnalysis?.hasSitemaps) {
+      factors.push('Sitemap references found in robots.txt');
+    }
+    
+    if (robotsTxtAnalysis?.hasAiDirectives) {
+      factors.push('AI-specific directives configured');
+    }
+    
+    if (robotsMetaAnalysis?.hasMetaRobots) {
+      factors.push('Meta robots tags implemented');
+    }
+    
+    return factors;
+  }
+
+  private generateAiOptimizationOpportunities(robotsTxtAnalysis: any, robotsMetaAnalysis: any, accessIntent: string): string[] {
+    const opportunities: string[] = [];
+    
+    if (!robotsTxtAnalysis?.hasContent) {
+      opportunities.push('Create robots.txt file to guide AI crawlers');
+    }
+    
+    if (!robotsTxtAnalysis?.hasAiDirectives) {
+      opportunities.push('Add AI-specific user-agent directives (GPTBot, Claude-Web, etc.)');
+    }
+    
+    if (!robotsTxtAnalysis?.hasSitemaps) {
+      opportunities.push('Add sitemap references to robots.txt for better discovery');
+    }
+    
+    if (accessIntent === 'block') {
+      opportunities.push('Consider allowing AI crawlers for better discoverability');
+    }
+    
+    if (!robotsMetaAnalysis?.hasMetaRobots) {
+      opportunities.push('Implement meta robots tags for page-level control');
+    }
+    
+    return opportunities;
   }
 }

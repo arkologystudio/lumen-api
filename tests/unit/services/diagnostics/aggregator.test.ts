@@ -34,7 +34,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('json_ld', 'structured_data', 'fail', 0, 2.5)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       expect(result.auditId).toBe('audit-123');
       expect(result.siteUrl).toBe('https://example.com');
@@ -56,7 +56,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('json_ld', 'structured_data', 'pass', 9)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       expect(result.pages).toHaveLength(2);
       expect(result.summary.totalIndicators).toBe(4);
@@ -79,7 +79,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('test3', 'structured_data', 'warn', 5, 1.0)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       const page = result.pages[0];
 
       // Average of 10, 8, 5 = 7.67 (rounded to 7.7)
@@ -94,7 +94,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('low_weight', 'seo', 'fail', 0, 1.0)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       const page = result.pages[0];
 
       // (10*3 + 0*1) / (3+1) = 30/4 = 7.5
@@ -105,7 +105,7 @@ describe('DiagnosticAggregator', () => {
       const pageResults = new Map<string, ScannerResult[]>();
       pageResults.set('https://example.com', []);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       const page = result.pages[0];
 
       expect(page.pageScore).toBe(0);
@@ -127,7 +127,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('test2', 'seo', 'warn', 6)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       // (8 + 6) / 2 = 7
       expect(result.siteScore.overall).toBe(7);
@@ -142,7 +142,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('structured_data', 'structured_data', 'warn', 6, 1.0) // weight 2.5 * 1.0
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       // (10*3.0 + 8*2.0 + 6*2.5) / (3.0 + 2.0 + 2.5) = (30 + 16 + 15) / 7.5 = 61/7.5 = 8.13
       expect(result.siteScore.weighted).toBeCloseTo(8.1, 1);
@@ -158,7 +158,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('structured1', 'structured_data', 'fail', 0)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       expect(result.siteScore.breakdown.standards).toBe(8); // (10+6)/2
       expect(result.siteScore.breakdown.seo).toBe(8);
@@ -177,7 +177,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('seo1', 'seo', 'pass', 8)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       const standardsCategory = result.categoryScores.find(c => c.category === 'standards');
       const seoCategory = result.categoryScores.find(c => c.category === 'seo');
@@ -198,7 +198,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('fail1', 'standards', 'fail', 0)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       const category = result.categoryScores.find(c => c.category === 'standards');
 
       expect(category?.passedCount).toBe(2);
@@ -215,7 +215,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('struct', 'structured_data', 'pass', 9) // weight 2.5
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       // Should be sorted by weight: standards (3.0), structured_data (2.5), seo (2.0)
       expect(result.categoryScores[0].category).toBe('standards');
@@ -236,7 +236,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('fail2', 'standards', 'fail', 0, 1.0)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       expect(result.summary.totalIndicators).toBe(5);
       expect(result.summary.passedIndicators).toBe(2);
@@ -252,10 +252,12 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('minor_fail', 'seo', 'fail', 0, 1.0)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
-      expect(result.summary.criticalIssues).toContain('critical_fail fail');
-      expect(result.summary.criticalIssues).not.toContain('minor_fail fail');
+      expect(result.summary.criticalIssues).toHaveLength(1);
+      expect(result.summary.criticalIssues[0].indicatorName).toBe('critical_fail');
+      expect(result.summary.criticalIssues[0].severity).toBe('critical');
+      expect(result.summary.criticalIssues[0].message).toBe('critical_fail fail');
     });
 
     it('should collect top recommendations', () => {
@@ -272,10 +274,12 @@ describe('DiagnosticAggregator', () => {
       pageResults.get('https://example.com')![1].recommendation = 'Fix medium priority issue';
       pageResults.get('https://example.com')![2].recommendation = 'Fix low priority issue';
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
-      expect(result.summary.topRecommendations[0]).toBe('Fix high priority issue');
-      expect(result.summary.topRecommendations[1]).toBe('Fix medium priority issue');
+      expect(result.summary.topRecommendations).toHaveLength(3);
+      expect(result.summary.topRecommendations[0].indicatorName).toBe('high_weight_fail');
+      expect(result.summary.topRecommendations[0].recommendation).toBe('Fix high priority issue');
+      expect(result.summary.topRecommendations[0].priority).toBe('high');
     });
   });
 
@@ -286,7 +290,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('perfect', 'standards', 'pass', 10)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       expect(result.aiReadiness).toBe('excellent');
     });
 
@@ -296,7 +300,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('good', 'standards', 'pass', 8)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       expect(result.aiReadiness).toBe('good');
     });
 
@@ -306,7 +310,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('medium', 'standards', 'warn', 6)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       expect(result.aiReadiness).toBe('needs_improvement');
     });
 
@@ -316,7 +320,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('poor', 'standards', 'fail', 2)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       expect(result.aiReadiness).toBe('poor');
     });
   });
@@ -330,7 +334,7 @@ describe('DiagnosticAggregator', () => {
       
       pageResults.set('https://example.com', [robotsResult]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       expect(result.accessIntent).toBe('partial');
     });
 
@@ -340,7 +344,7 @@ describe('DiagnosticAggregator', () => {
         createMockScannerResult('other', 'seo', 'pass', 8)
       ]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
       expect(result.accessIntent).toBe('allow'); // Default
     });
   });
@@ -349,7 +353,7 @@ describe('DiagnosticAggregator', () => {
     it('should handle empty results', () => {
       const pageResults = new Map<string, ScannerResult[]>();
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       expect(result.pages).toHaveLength(0);
       expect(result.siteScore.overall).toBe(0);
@@ -370,7 +374,7 @@ describe('DiagnosticAggregator', () => {
       
       pageResults.set('https://example.com', [resultWithoutScore]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       // Should use default score based on status
       expect(result.pages[0].pageScore).toBe(10); // Default for 'pass'
@@ -389,9 +393,150 @@ describe('DiagnosticAggregator', () => {
       
       pageResults.set('https://example.com', [resultWithoutWeight]);
 
-      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults);
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
 
       expect(result.pages[0].pageScore).toBe(8);
+    });
+  });
+
+  describe('Enhanced Response Structure', () => {
+    it('should include audit metadata', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('llms_txt', 'standards', 'pass', 10, 2.0)
+      ]);
+
+      const scanStarted = new Date('2024-01-01T00:00:00Z');
+      const scanCompleted = new Date('2024-01-01T00:00:05Z');
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'full', scanStarted, scanCompleted);
+
+      expect(result.auditType).toBe('full');
+      expect(result.scanMetadata).toBeDefined();
+      expect(result.scanMetadata.scanStarted).toEqual(scanStarted);
+      expect(result.scanMetadata.scanCompleted).toEqual(scanCompleted);
+      expect(result.scanMetadata.version).toBe('2.0');
+      expect(result.scanMetadata.pagesCrawled).toBe(1);
+      expect(result.scanMetadata.indicatorsChecked).toBe(1);
+    });
+
+    it('should provide AI readiness details', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('llms_txt', 'standards', 'pass', 10, 2.0),
+        createMockScannerResult('json_ld', 'structured_data', 'pass', 8, 2.0),
+        createMockScannerResult('seo_basic', 'seo', 'pass', 9, 1.5)
+      ]);
+
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
+
+      expect(result.aiReadinessDetails).toBeDefined();
+      expect(result.aiReadinessDetails.score).toBeGreaterThan(0);
+      expect(result.aiReadinessDetails.maxScore).toBe(10);
+      expect(result.aiReadinessDetails.factors).toBeDefined();
+      expect(result.aiReadinessDetails.factors.hasLlmsTxt).toBe(true);
+      expect(result.aiReadinessDetails.factors.hasStructuredData).toBe(true);
+      expect(result.aiReadinessDetails.factors.hasSeoOptimization).toBe(true);
+    });
+
+    it('should provide access intent details', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('robots_txt', 'seo', 'pass', 10, 2.0)
+      ]);
+
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
+
+      expect(result.accessIntentDetails).toBeDefined();
+      expect(result.accessIntentDetails.intent).toBe('allow');
+      expect(result.accessIntentDetails.sources).toBeDefined();
+      expect(result.accessIntentDetails.allowedAgents).toBeDefined();
+    });
+
+    it('should provide enhanced category scores with insights', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('llms_txt', 'standards', 'pass', 10, 2.0),
+        createMockScannerResult('robots_txt', 'seo', 'warn', 6, 1.5)
+      ]);
+
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
+
+      expect(result.categoryScores).toHaveLength(2);
+      
+      const standardsCategory = result.categoryScores.find(c => c.category === 'standards');
+      expect(standardsCategory).toBeDefined();
+      expect(standardsCategory!.displayName).toBe('AI Standards');
+      expect(standardsCategory!.description).toBeDefined();
+      expect(standardsCategory!.maxScore).toBe(10);
+      expect(standardsCategory!.categoryInsights).toBeDefined();
+      expect(standardsCategory!.categoryInsights.keyStrengths).toBeDefined();
+    });
+
+    it('should provide enhanced page indicators', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('llms_txt', 'standards', 'pass', 10, 2.0),
+        createMockScannerResult('seo_basic', 'seo', 'fail', 0, 1.5)
+      ]);
+
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
+
+      expect(result.pages).toHaveLength(1);
+      const page = result.pages[0];
+      
+      expect(page.indicators).toHaveLength(2);
+      
+      const llmsIndicator = page.indicators.find(i => i.name === 'llms_txt');
+      expect(llmsIndicator).toBeDefined();
+      expect(llmsIndicator!.displayName).toBe('LLMS.txt File');
+      expect(llmsIndicator!.description).toBeDefined();
+      expect(llmsIndicator!.maxScore).toBe(10);
+      expect(llmsIndicator!.details).toBeDefined();
+      expect(llmsIndicator!.scannedAt).toBeDefined();
+    });
+
+    it('should provide actionable items in summary', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('seo_basic', 'seo', 'fail', 0, 1.0), // Easy fix
+        createMockScannerResult('json_ld', 'structured_data', 'fail', 0, 2.0) // Hard fix
+      ]);
+
+      pageResults.get('https://example.com')![0].recommendation = 'Add page title';
+      pageResults.get('https://example.com')![1].recommendation = 'Implement structured data';
+
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
+
+      expect(result.summary.quickWins).toBeDefined();
+      expect(result.summary.strategicImprovements).toBeDefined();
+      expect(result.summary.completionPercentage).toBeDefined();
+      expect(result.summary.aiReadinessPercentage).toBeDefined();
+      expect(result.summary.complianceLevel).toBeDefined();
+    });
+
+    it('should provide prioritized issues and recommendations', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
+      pageResults.set('https://example.com', [
+        createMockScannerResult('critical_fail', 'standards', 'fail', 0, 3.0),
+        createMockScannerResult('medium_warn', 'seo', 'warn', 5, 2.0)
+      ]);
+
+      pageResults.get('https://example.com')![0].recommendation = 'Fix critical issue';
+      pageResults.get('https://example.com')![1].recommendation = 'Address warning';
+
+      const result = aggregator.aggregate('audit-123', 'https://example.com', pageResults, 'quick', new Date(), new Date());
+
+      expect(result.pages[0].issues).toBeDefined();
+      expect(result.pages[0].recommendations).toBeDefined();
+      
+      const criticalIssue = result.pages[0].issues.find(i => i.severity === 'critical');
+      expect(criticalIssue).toBeDefined();
+      expect(criticalIssue!.actionable).toBeDefined();
+      
+      const highPriorityRec = result.pages[0].recommendations.find(r => r.priority === 'high');
+      expect(highPriorityRec).toBeDefined();
+      expect(highPriorityRec!.estimatedImpact).toBeDefined();
+      expect(highPriorityRec!.difficulty).toBeDefined();
     });
   });
 });

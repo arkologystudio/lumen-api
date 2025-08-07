@@ -60,7 +60,17 @@ export class JsonLdScanner extends BaseScanner {
         status: 'fail',
         score: 0,
         message: 'No JSON-LD structured data found',
-        details: analysis,
+        details: {
+          contentFound: false,
+          validationIssues: ['No JSON-LD structured data detected'],
+          specificData: analysis,
+          aiReadinessFactors: [],
+          aiOptimizationOpportunities: [
+            'Implement JSON-LD structured data for better content understanding',
+            'Add Organization or Website schema markup',
+            'Include relevant business or content-specific schemas'
+          ]
+        },
         recommendation: 'Add JSON-LD structured data to help search engines and AI agents understand your content'
       });
     }
@@ -72,7 +82,14 @@ export class JsonLdScanner extends BaseScanner {
       status,
       score,
       message: this.generateMessage(analysis),
-      details: analysis,
+      details: {
+        contentFound: true,
+        validationIssues: analysis.validationIssues,
+        validationScore: score,
+        specificData: analysis,
+        aiReadinessFactors: this.generateAiReadinessFactors(analysis),
+        aiOptimizationOpportunities: this.generateOptimizationOpportunities(analysis, status)
+      },
       recommendation: this.generateRecommendations(analysis)
     });
   }
@@ -293,5 +310,57 @@ export class JsonLdScanner extends BaseScanner {
     return recommendations.length > 0
       ? recommendations.join('. ')
       : 'Structured data is well-implemented for AI agents';
+  }
+
+  private generateAiReadinessFactors(analysis: JsonLdAnalysis): string[] {
+    const factors: string[] = [];
+    
+    if (analysis.found) {
+      factors.push('JSON-LD structured data detected');
+    }
+    
+    if (analysis.aiRelevantTypes.length > 0) {
+      factors.push(`AI-relevant schema types found: ${analysis.aiRelevantTypes.join(', ')}`);
+    }
+    
+    if (analysis.hasOrganization) {
+      factors.push('Organization schema provides entity information');
+    }
+    
+    if (analysis.hasWebSite) {
+      factors.push('Website schema enhances site understanding');
+    }
+    
+    if (analysis.validationIssues.length === 0) {
+      factors.push('Well-formed structured data with no validation issues');
+    }
+    
+    return factors;
+  }
+
+  private generateOptimizationOpportunities(analysis: JsonLdAnalysis, status: string): string[] {
+    const opportunities: string[] = [];
+    
+    if (!analysis.hasOrganization) {
+      opportunities.push('Add Organization schema for better entity recognition');
+    }
+    
+    if (!analysis.hasWebSite) {
+      opportunities.push('Implement WebSite schema for enhanced site information');
+    }
+    
+    if (analysis.validationIssues.length > 0) {
+      opportunities.push('Fix validation issues to improve data quality');
+    }
+    
+    if (analysis.aiRelevantTypes.length < 2) {
+      opportunities.push('Consider adding more relevant schema types for comprehensive coverage');
+    }
+    
+    if (status === 'warn' || status === 'fail') {
+      opportunities.push('Expand structured data coverage for better AI understanding');
+    }
+    
+    return opportunities;
   }
 }
