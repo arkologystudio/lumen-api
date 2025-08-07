@@ -49,7 +49,7 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-  res.send("Lumen Neural Search API is up and running!");
+  res.send("Lighthouse API is up and running!");
 });
 
 // ── API ROUTES ──────────────────────────────────────────────────────────────

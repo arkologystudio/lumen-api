@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { CrawlerService, SiteCrawlOptions } from './crawler';
+import { CrawlerService, SiteCrawlOptions } from './crawler/crawlerService';
 import { ScannerRegistry, ScannerContext, initializeScanners } from './scanners';
 import { DiagnosticAggregator, AggregatedResult } from './aggregator';
 // import { createClient } from '@supabase/supabase-js';
@@ -187,6 +187,106 @@ export class DiagnosticsService {
       
       return {
         auditId: auditId || 'unknown',
+        status: 'failed',
+        error: errorMessage,
+        duration: Date.now() - startTime
+      };
+    }
+  }
+  
+  /**
+   * Run an anonymous diagnostic scan on any URL without authentication
+   * Does not store results in database - returns ephemeral results
+   */
+  async runAnonymousDiagnostic(
+    url: string, 
+    options: RunDiagnosticOptions = {}
+  ): Promise<DiagnosticResult> {
+    const startTime = Date.now();
+    
+    try {
+      // Validate URL format and accessibility
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(url);
+      } catch {
+        throw new Error('Invalid URL format');
+      }
+      
+      // Security check - only allow http/https
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('Only HTTP and HTTPS URLs are allowed');
+      }
+      
+      console.log(`[Diagnostics] Starting anonymous scan for: ${url}`);
+      
+      // Crawl the site with anonymous limits
+      const crawlOptions: SiteCrawlOptions = {
+        includeSitemap: false, // Never include sitemap for anonymous
+        maxPages: Math.min(options.maxPages || 3, 3), // Strict 3-page limit
+        storeRawData: false, // Never store raw data for anonymous
+        timeout: 15000 // Shorter timeout for anonymous scans
+      };
+      
+      const crawlResult = await this.crawler.crawlSite(url, crawlOptions);
+      
+      if (crawlResult.pages.length === 0) {
+        throw new Error('No pages could be crawled - site may be unreachable');
+      }
+      
+      console.log(`[Diagnostics] Crawled ${crawlResult.pages.length} pages, running scanners...`);
+      
+      // Run scanners on crawled pages (no database storage)
+      const pageResults = new Map<string, any[]>();
+      const tempAuditId = `anonymous-${Date.now()}`; // Temporary audit ID for context
+      
+      for (const page of crawlResult.pages) {
+        if (page.statusCode === 200 && page.html) {
+          // Create scanner context
+          const context: ScannerContext = {
+            auditId: tempAuditId,
+            siteUrl: url,
+            pageUrl: page.url,
+            pageHtml: page.html,
+            pageMetadata: {
+              title: page.title,
+              metaDescription: page.metaDescription,
+              statusCode: page.statusCode,
+              loadTimeMs: page.loadTimeMs,
+              wordCount: page.wordCount
+            },
+            crawlerMetadata: {
+              crawledAt: new Date()
+            }
+          };
+          
+          // Run all applicable scanners
+          const scanResults = await this.scannerRegistry.runAllScanners(context);
+          pageResults.set(page.url, scanResults);
+        }
+      }
+      
+      console.log(`[Diagnostics] Scanning complete, aggregating results...`);
+      
+      // Aggregate results without database storage
+      const aggregatedResult = this.aggregator.aggregate(tempAuditId, url, pageResults);
+      
+      console.log(`[Diagnostics] Anonymous scan completed in ${Date.now() - startTime}ms`);
+      
+      return {
+        auditId: tempAuditId,
+        status: 'completed',
+        result: aggregatedResult,
+        duration: Date.now() - startTime
+      };
+      
+    } catch (error) {
+      console.error('Anonymous diagnostic scan failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      return {
+        auditId: `anonymous-failed-${Date.now()}`,
         status: 'failed',
         error: errorMessage,
         duration: Date.now() - startTime

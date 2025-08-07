@@ -10,7 +10,19 @@ export function createDiagnosticsRoutes(): Router {
   const router = Router();
   const diagnosticsController = new DiagnosticsController(prisma);
   
-  // Apply authentication to all routes
+  /**
+   * POST /v1/diagnostics/scan-url
+   * Run anonymous diagnostic scan on any URL (no authentication required)
+   * 
+   * Body:
+   * - url: string (required) - The website URL to scan
+   * 
+   * Returns basic diagnostic results without storing to database
+   * Limited to 3 pages for anonymous scans
+   */
+  router.post('/scan-url', diagnosticsController.scanUrl);
+  
+  // Apply authentication to authenticated routes
   router.use(authenticateUser);
   
   // Apply query tracking for usage monitoring

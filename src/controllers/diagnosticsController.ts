@@ -24,6 +24,62 @@ export class DiagnosticsController {
   }
   
   /**
+   * POST /v1/diagnostics/scan-url
+   * Run anonymous diagnostic scan on any URL (no authentication required)
+   */
+  scanUrl = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { url } = req.body;
+      
+      console.log(`[Diagnostics] Anonymous scan triggered - URL: ${url}`);
+      
+      if (!url) {
+        res.status(400).json({ error: 'url is required' });
+        return;
+      }
+      
+      // Validate URL format
+      try {
+        new URL(url);
+      } catch {
+        res.status(400).json({ error: 'Invalid URL format' });
+        return;
+      }
+      
+      // Anonymous scan options with strict server-managed limits
+      const anonymousOptions = {
+        auditType: 'quick' as const,
+        includeSitemap: false,
+        maxPages: 3, // Server-managed limit for anonymous scans
+        storeRawData: false,
+        skipCache: true // Always fresh for anonymous scans
+      };
+      
+      // Run anonymous diagnostic scan
+      const result = await this.diagnosticsService.runAnonymousDiagnostic(url, anonymousOptions);
+      
+      if (result.status === 'failed') {
+        res.status(500).json({
+          error: 'Diagnostic scan failed',
+          details: result.error
+        });
+        return;
+      }
+      
+      res.status(200).json({
+        message: 'Anonymous diagnostic scan completed',
+        status: result.status,
+        duration: result.duration,
+        result: result.result
+      });
+      
+    } catch (error) {
+      console.error('Error running anonymous diagnostic scan:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  };
+  
+  /**
    * POST /v1/diagnostics/scan
    * Trigger a new diagnostic scan
    */
@@ -31,6 +87,8 @@ export class DiagnosticsController {
     try {
       const { siteId, options = {} } = req.body;
       const userId = req.user?.id;
+      
+      console.log(`[Diagnostics] Scan triggered - User: ${userId}, Site: ${siteId}`);
       
       if (!userId) {
         res.status(401).json({ error: 'Authentication required' });
@@ -96,6 +154,8 @@ export class DiagnosticsController {
       const { siteId } = req.params;
       const userId = req.user?.id;
       
+      console.log(`[Diagnostics] Score requested - User: ${userId}, Site: ${siteId}`);
+      
       if (!userId) {
         res.status(401).json({ error: 'Authentication required' });
         return;
@@ -150,6 +210,8 @@ export class DiagnosticsController {
       const { pageId } = req.params;
       const { category, status, limit = '50', offset = '0' } = req.query;
       const userId = req.user?.id;
+      
+      console.log(`[Diagnostics] Page indicators requested - User: ${userId}, Page: ${pageId}`);
       
       if (!userId) {
         res.status(401).json({ error: 'Authentication required' });
@@ -233,6 +295,8 @@ export class DiagnosticsController {
       const { siteId } = req.body;
       const userId = req.user?.id;
       
+      console.log(`[Diagnostics] Rescore triggered - User: ${userId}, Site: ${siteId}`);
+      
       if (!userId) {
         res.status(401).json({ error: 'Authentication required' });
         return;
@@ -280,6 +344,8 @@ export class DiagnosticsController {
     try {
       const { auditId } = req.params;
       const userId = req.user?.id;
+      
+      console.log(`[Diagnostics] Audit details requested - User: ${userId}, Audit: ${auditId}`);
       
       if (!userId) {
         res.status(401).json({ error: 'Authentication required' });
