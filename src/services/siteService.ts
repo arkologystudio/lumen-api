@@ -5,6 +5,7 @@ import {
   getSiteStats,
   dropSiteCollection,
 } from "./multiSiteVectorStore";
+import { normalizeUrl, clearCorsCache } from "./corsService";
 
 /**
  * Convert Prisma site to our Site type
@@ -25,12 +26,11 @@ const mapPrismaSiteToSite = (prismaSite: any): Site => ({
 });
 
 /**
- * Normalize URL for comparison
+ * Validate URL format and ensure it's accessible
  */
-const normalizeUrl = (url: string): string => {
+const validateUrl = (url: string): string => {
   try {
-    const urlObj = new URL(url);
-    return urlObj.origin.toLowerCase();
+    return normalizeUrl(url);
   } catch {
     throw new Error("Invalid URL format");
   }
@@ -47,7 +47,7 @@ const validateSiteData = (
   }
 
   if (data.url) {
-    normalizeUrl(data.url); // This will throw if invalid
+    validateUrl(data.url); // This will throw if invalid
   }
 
   if (data.description && data.description.length > 500) {
@@ -64,7 +64,7 @@ export const createSite = async (
 ): Promise<Site> => {
   validateSiteData(siteData);
 
-  const normalizedUrl = normalizeUrl(siteData.url);
+  const normalizedUrl = validateUrl(siteData.url);
 
   // Check if URL is already registered
   const existingSite = await prisma.site.findUnique({
@@ -110,6 +110,9 @@ export const createSite = async (
     );
     // Don't fail site creation if collection initialization fails
   }
+
+  // Clear CORS cache so new site is immediately allowed
+  clearCorsCache();
 
   return site;
 };
@@ -187,7 +190,7 @@ export const updateSite = async (
   // Check URL change if provided
   let normalizedUrl: string | undefined;
   if (updateData.url) {
-    normalizedUrl = normalizeUrl(updateData.url);
+    normalizedUrl = validateUrl(updateData.url);
 
     // If URL is changing, check if new URL is available
     if (normalizedUrl !== existingSite.url) {
@@ -215,6 +218,11 @@ export const updateSite = async (
       }),
     },
   });
+
+  // Clear CORS cache if URL or active status changed
+  if (normalizedUrl || updateData.is_active !== undefined) {
+    clearCorsCache();
+  }
 
   return mapPrismaSiteToSite(updatedPrismaSite);
 };
@@ -250,6 +258,9 @@ export const deleteSite = async (
   } catch (error) {
     console.error(`Failed to drop collection for site ${siteId}:`, error);
   }
+
+  // Clear CORS cache since site was deleted
+  clearCorsCache();
 };
 
 /**

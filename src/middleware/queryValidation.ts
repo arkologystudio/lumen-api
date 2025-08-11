@@ -12,7 +12,7 @@ import { validateLicense, trackQueryUsage } from "../services/licenseService";
  * Middleware to validate license and enforce query limits
  * Should be used after authentication middleware
  */
-export const validateQueryLicense = (productSlug: string = "lumen-search-api") => {
+export const validateQueryLicense = (productSlug?: string) => {
   return async (
     req: AuthenticatedRequest,
     res: Response,
@@ -31,8 +31,35 @@ export const validateQueryLicense = (productSlug: string = "lumen-search-api") =
         return;
       }
 
-      // Validate the license
-      const license = await validateLicense(licenseKey, productSlug);
+      // If no specific product slug provided, find any valid license for this key
+      let license;
+      if (productSlug) {
+        // Validate for specific product
+        license = await validateLicense(licenseKey, productSlug);
+      } else {
+        // Find any active license with this key
+        const prismaLicense = await prisma.license.findFirst({
+          where: {
+            license_key: licenseKey,
+            status: "active",
+            is_active: true,
+          },
+          include: {
+            user: true,
+            product: true,
+          },
+        });
+        
+        if (prismaLicense) {
+          // Check if license is expired
+          if (prismaLicense.expires_at && new Date(prismaLicense.expires_at) < new Date()) {
+            license = null;
+          } else {
+            // Use the product slug from the found license
+            license = await validateLicense(licenseKey, prismaLicense.product.slug);
+          }
+        }
+      }
       
       if (!license) {
         res.status(403).json({
