@@ -1,7 +1,23 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
+
+// Load products from the single source of truth config file
+const loadProductConfig = () => {
+  const configPath = path.join(__dirname, '../src/config/products.config.json');
+  try {
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(configData);
+    console.log(`✅ Loaded product config version ${config.version}`);
+    return config;
+  } catch (error) {
+    console.error('❌ Failed to load products config:', error);
+    throw new Error('Failed to load product configuration. Please ensure products.config.json exists.');
+  }
+};
 
 async function resetDatabase() {
   console.log('🗑️  Starting database reset...');
@@ -29,265 +45,65 @@ async function resetDatabase() {
     
     console.log('✅ All data cleared');
     
-    // Create initial products
-    console.log('Creating initial products...');
+    // Load products from config file
+    const config = loadProductConfig();
+    const productsData = config.products;
+    const pricingTiers = config.pricingTiers;
     
-    const products = await Promise.all([
-      prisma.product.create({
-        data: {
-          name: 'AI Ready Core',
-          slug: 'ai-ready-core',
-          description: 'Core neural search functionality for WordPress sites',
-          category: 'search',
-          version: '1.0.0',
-          is_active: true,
-          is_beta: false,
-          base_price: 29,
-          usage_based: true,
-          features: {
-            core: [
-              'Neural search powered by AI',
-              'Smart text chunking',
-              'Vector embeddings',
-              'Semantic similarity search',
-              'WordPress integration'
-            ]
-          },
-          limits: {
-            standard: { queries: 1000, sites: 1 },
-            standard_plus: { queries: 2500, sites: 3 },
-            premium: { queries: 5000, sites: 5 },
-            premium_plus: { queries: 10000, sites: 10 },
-            enterprise: { queries: null, sites: null }
-          },
-          filename: 'ai-ready-core.zip',
-          file_path: 'products/ai-ready-core/ai-ready-core-v1.0.0.zip',
-          file_size: 2458624, // ~2.4 MB
-          file_hash: 'sha256:abcd1234efgh5678ijkl9012mnop3456qrst7890uvwx1234yz567890',
-          content_type: 'application/zip',
-          is_public: false,
-          max_downloads: null,
-          release_notes: 'Initial release of AI Ready Core with full neural search capabilities',
-          changelog: '## Version 1.0.0\n- Initial release\n- Neural search implementation\n- WordPress REST API integration\n- Smart chunking algorithm'
-        }
-      }),
-      
-      prisma.product.create({
-        data: {
-          name: 'WooCommerce AI Search',
-          slug: 'woocommerce-ai-search',
-          description: 'AI-powered product search for WooCommerce stores',
-          category: 'ecommerce',
-          version: '1.0.0',
-          is_active: true,
-          is_beta: false,
-          base_price: 49,
-          usage_based: true,
-          features: {
-            core: [
-              'Product embedding generation',
-              'Semantic product search',
-              'Brand and category filtering',
-              'Price-aware search results',
-              'Inventory status integration'
-            ]
-          },
-          limits: {
-            standard: { queries: 2000, sites: 1 },
-            standard_plus: { queries: 5000, sites: 3 },
-            premium: { queries: 10000, sites: 5 },
-            premium_plus: { queries: 25000, sites: 10 },
-            enterprise: { queries: null, sites: null }
-          },
-          filename: 'woocommerce-ai-search.zip',
-          file_path: 'products/woocommerce/woocommerce-ai-search-v1.0.0.zip',
-          file_size: 3145728, // ~3 MB
-          file_hash: 'sha256:wxyz1234abcd5678efgh9012ijkl3456mnop7890qrst1234uvwx5678',
-          content_type: 'application/zip',
-          is_public: false,
-          max_downloads: null,
-          release_notes: 'First release of WooCommerce AI Search with advanced product discovery',
-          changelog: '## Version 1.0.0\n- WooCommerce integration\n- Product embedding pipeline\n- Advanced filtering options\n- Real-time inventory sync'
-        }
-      }),
-      
-      prisma.product.create({
-        data: {
-          name: 'Content Intelligence Suite',
-          slug: 'content-intelligence',
-          description: 'Advanced content analysis and insights powered by AI',
-          category: 'analysis',
-          version: '1.0.0',
-          is_active: true,
-          is_beta: true,
-          base_price: 79,
-          usage_based: true,
-          features: {
-            core: [
-              'Content quality scoring',
-              'SEO optimization suggestions',
-              'Readability analysis',
-              'Topic clustering',
-              'Content gap analysis',
-              'Competitor content tracking'
-            ]
-          },
-          limits: {
-            standard: { analyses: 100, sites: 1 },
-            standard_plus: { analyses: 250, sites: 2 },
-            premium: { analyses: 500, sites: 5 },
-            premium_plus: { analyses: 1000, sites: 10 },
-            enterprise: { analyses: null, sites: null }
-          },
-          filename: 'content-intelligence-suite.zip',
-          file_path: 'products/intelligence/content-intelligence-v1.0.0-beta.zip',
-          file_size: 4194304, // ~4 MB
-          file_hash: 'sha256:mnop1234qrst5678uvwx9012yzab3456cdef7890ghij1234klmn5678',
-          content_type: 'application/zip',
-          is_public: false,
-          max_downloads: null,
-          release_notes: 'Beta release of Content Intelligence Suite',
-          changelog: '## Version 1.0.0-beta\n- Content quality algorithms\n- SEO analysis engine\n- Topic clustering implementation\n- Beta testing features'
-        }
-      }),
-      
-      prisma.product.create({
-        data: {
-          name: 'API Gateway Pro',
-          slug: 'api-gateway-pro',
-          description: 'Enterprise API management and orchestration platform',
-          category: 'infrastructure',
-          version: '2.0.0',
-          is_active: true,
-          is_beta: false,
-          base_price: 199,
-          usage_based: true,
-          features: {
-            core: [
-              'Rate limiting and throttling',
-              'API key management',
-              'Request/response transformation',
-              'Multi-site orchestration',
-              'Advanced caching',
-              'Real-time analytics dashboard'
-            ],
-            enterprise: [
-              'Custom middleware',
-              'Load balancing',
-              'Failover configuration',
-              'Advanced security rules'
-            ]
-          },
-          limits: {
-            standard: { requests: 100000, sites: 5 },
-            standard_plus: { requests: 500000, sites: 10 },
-            premium: { requests: 2000000, sites: 25 },
-            premium_plus: { requests: 5000000, sites: 50 },
-            enterprise: { requests: null, sites: null }
-          },
-          filename: 'api-gateway-pro.zip',
-          file_path: 'products/gateway/api-gateway-pro-v2.0.0.zip',
-          file_size: 6291456, // ~6 MB
-          file_hash: 'sha256:ijkl1234mnop5678qrst9012uvwx3456yzab7890cdef1234ghij5678',
-          content_type: 'application/zip',
-          is_public: false,
-          max_downloads: null,
-          release_notes: 'Major release with enterprise features',
-          changelog: '## Version 2.0.0\n- Complete architecture overhaul\n- Enterprise features added\n- Performance improvements\n- New analytics dashboard'
-        }
-      })
-    ]);
+    // Create initial products from config
+    console.log('Creating initial products from config...');
+    
+    const products = await Promise.all(
+      productsData.map((product: any) => 
+        prisma.product.create({
+          data: {
+            name: product.name,
+            slug: product.slug,
+            description: product.description,
+            category: product.category,
+            version: product.version,
+            is_active: product.is_active,
+            is_beta: product.is_beta,
+            base_price: product.base_price,
+            usage_based: product.usage_based,
+            features: product.features,
+            limits: product.limits,
+            extended_documentation: product.extended_documentation
+          }
+        })
+      )
+    );
     
     console.log(`✅ Created ${products.length} initial products`);
     
-    // Create pricing tiers for each product
-    console.log('Creating pricing tiers...');
+    // Create pricing tiers from config
+    console.log('Creating pricing tiers from config...');
     
     for (const product of products) {
-      const basePrices = {
-        'ai-ready-core': { standard: 29, standard_plus: 49, premium: 99, premium_plus: 199, enterprise: 499 },
-        'woocommerce-ai-search': { standard: 49, standard_plus: 79, premium: 149, premium_plus: 299, enterprise: 699 },
-        'content-intelligence': { standard: 79, standard_plus: 119, premium: 199, premium_plus: 399, enterprise: 999 },
-        'api-gateway-pro': { standard: 199, standard_plus: 349, premium: 599, premium_plus: 999, enterprise: 2499 }
-      };
+      const productTiers = pricingTiers.filter((tier: any) => tier.product_slug === product.slug);
       
-      const prices = basePrices[product.slug as keyof typeof basePrices];
-      
-      const tiers = [
-        {
-          tier_name: 'standard',
-          display_name: 'Standard',
-          description: 'Perfect for small sites and blogs',
-          monthly_price: prices.standard,
-          annual_price: prices.standard * 10, // 2 months free
-          max_queries: product.slug === 'api-gateway-pro' ? 100000 : 1000,
-          max_sites: 1,
-          agent_api_access: false,
-          extra_site_price: 19,
-          overage_price: 0.05,
-          sort_order: 1
-        },
-        {
-          tier_name: 'standard_plus',
-          display_name: 'Standard+',
-          description: 'Great for growing sites with moderate traffic',
-          monthly_price: prices.standard_plus,
-          annual_price: prices.standard_plus * 10,
-          max_queries: product.slug === 'api-gateway-pro' ? 500000 : 2500,
-          max_sites: 3,
-          agent_api_access: false,
-          extra_site_price: 15,
-          overage_price: 0.04,
-          sort_order: 2
-        },
-        {
-          tier_name: 'premium',
-          display_name: 'Premium',
-          description: 'Ideal for professional sites and agencies',
-          monthly_price: prices.premium,
-          annual_price: prices.premium * 10,
-          max_queries: product.slug === 'api-gateway-pro' ? 2000000 : 5000,
-          max_sites: 5,
-          agent_api_access: true,
-          extra_site_price: 12,
-          overage_price: 0.03,
-          sort_order: 3
-        },
-        {
-          tier_name: 'premium_plus',
-          display_name: 'Premium+',
-          description: 'Advanced features for high-traffic sites',
-          monthly_price: prices.premium_plus,
-          annual_price: prices.premium_plus * 10,
-          max_queries: product.slug === 'api-gateway-pro' ? 5000000 : 10000,
-          max_sites: 10,
-          agent_api_access: true,
-          extra_site_price: 10,
-          overage_price: 0.02,
-          sort_order: 4
-        },
-        {
-          tier_name: 'enterprise',
-          display_name: 'Enterprise',
-          description: 'Unlimited usage with dedicated support',
-          monthly_price: prices.enterprise,
-          annual_price: prices.enterprise * 10,
-          max_queries: null, // unlimited
-          max_sites: 100,
-          agent_api_access: true,
-          extra_site_price: 8,
-          overage_price: 0,
-          custom_embedding_markup: 25,
-          sort_order: 5
-        }
-      ];
-      
-      await prisma.pricingTier.createMany({
-        data: tiers.map(tier => ({
-          ...tier,
-          product_id: product.id
-        }))
-      });
+      // Create each tier from config
+      for (const tierData of productTiers) {
+        await prisma.pricingTier.create({
+          data: {
+            product_id: product.id,
+            tier_name: tierData.tier_name,
+            display_name: tierData.display_name,
+            description: tierData.description,
+            monthly_price: tierData.monthly_price,
+            annual_price: tierData.annual_price,
+            max_queries: tierData.max_queries,
+            max_sites: tierData.max_sites,
+            agent_api_access: tierData.agent_api_access,
+            extra_site_price: tierData.extra_site_price,
+            overage_price: tierData.overage_price,
+            custom_embedding_markup: tierData.custom_embedding_markup,
+            features: tierData.features,
+            is_active: tierData.is_active,
+            sort_order: tierData.sort_order
+          }
+        });
+      }
     }
     
     console.log('✅ Created pricing tiers for all products');

@@ -13,6 +13,11 @@ import {
   createAdminEcosystemProductController,
   updateAdminEcosystemProductController,
   deleteAdminEcosystemProductController,
+  // Database management controllers
+  getDatabaseStatusController,
+  resetDatabaseController,
+  resetAndReinitializeController,
+  forceReinitializeProductsController,
 } from "../controllers/adminController";
 import {
   dropSiteCollectionController,
@@ -53,5 +58,11 @@ router.get("/ecosystem/products", getAdminEcosystemProductsController);
 router.post("/ecosystem/products", createAdminEcosystemProductController);
 router.put("/ecosystem/products/:slug", updateAdminEcosystemProductController);
 router.delete("/ecosystem/products/:slug", deleteAdminEcosystemProductController);
+
+// ── DATABASE MANAGEMENT ─────────────────────────────────────────────────────
+router.get("/database/status", getDatabaseStatusController);
+router.post("/database/reset", resetDatabaseController);
+router.post("/database/reset-and-reinitialize", resetAndReinitializeController);
+router.post("/database/force-reinitialize-products", forceReinitializeProductsController);
 
 export default router;

@@ -22,7 +22,7 @@ import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
-// import { initializeDefaultProducts } from "./services/ecosystemProductService";
+import { initializeProductsIfNeeded } from "./services/databaseManagement";
 import { initializeStorage } from "./services/supabaseStorage";
 
 
@@ -117,9 +117,18 @@ const startServer = async () => {
     // Initialize storage buckets
     console.log("📦 Initializing storage buckets...");
     await initializeStorage();
+    console.log("✅ Storage initialization completed");
 
-    console.log("✅ Storage initialization completed successfully");
-    console.log("💡 Use POST /api/admin/products/initialize to set up default products");
+    // Initialize products from config if needed (with tracking)
+    console.log("🛍️ Checking product initialization...");
+    await initializeProductsIfNeeded();
+    
+    console.log("✅ All initialization completed successfully");
+    console.log("💡 Database Management Endpoints:");
+    console.log("   GET  /api/admin/database/status - Check initialization status");
+    console.log("   POST /api/admin/database/reset - Reset entire database");
+    console.log("   POST /api/admin/database/reset-and-reinitialize - Reset and reinitialize");
+    console.log("   POST /api/admin/database/force-reinitialize-products - Force reinitialize products");
   } catch (error) {
     console.error("❌ Initialization failed:", error);
     process.exit(1);

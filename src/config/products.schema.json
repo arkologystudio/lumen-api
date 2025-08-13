@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Product Configuration Schema",
+  "description": "Schema for the products.config.json file - DO NOT MODIFY WITHOUT AUTHORIZATION",
+  "type": "object",
+  "required": ["version", "lastUpdated", "products", "pricingTiers"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration version number",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "lastUpdated": {
+      "type": "string",
+      "description": "Date when the configuration was last updated",
+      "format": "date"
+    },
+    "products": {
+      "type": "array",
+      "description": "List of available products",
+      "items": {
+        "$ref": "#/definitions/product"
+      }
+    },
+    "pricingTiers": {
+      "type": "array",
+      "description": "List of pricing tiers for each product",
+      "items": {
+        "$ref": "#/definitions/pricingTier"
+      }
+    }
+  },
+  "definitions": {
+    "product": {
+      "type": "object",
+      "required": ["name", "slug", "description", "category", "version", "is_active", "is_beta", "base_price", "usage_based", "features", "limits"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Product display name"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Unique identifier slug",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "description": {
+          "type": "string",
+          "description": "Product description"
+        },
+        "category": {
+          "type": "string",
+          "description": "Product category",
+          "enum": ["analysis", "search", "ecommerce", "infrastructure"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Product version"
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Whether the product is currently available"
+        },
+        "is_beta": {
+          "type": "boolean",
+          "description": "Whether the product is in beta"
+        },
+        "base_price": {
+          "type": "number",
+          "description": "Base price in USD",
+          "minimum": 0
+        },
+        "usage_based": {
+          "type": "boolean",
+          "description": "Whether pricing is usage-based"
+        },
+        "features": {
+          "type": "array",
+          "description": "List of product features",
+          "items": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "type": "object",
+          "description": "Usage limits per tier"
+        },
+        "extended_documentation": {
+          "type": "string",
+          "description": "Additional product documentation"
+        }
+      }
+    },
+    "pricingTier": {
+      "type": "object",
+      "required": ["product_slug", "tier_name", "display_name", "description", "monthly_price", "annual_price", "is_active", "sort_order"],
+      "properties": {
+        "product_slug": {
+          "type": "string",
+          "description": "Reference to the product slug"
+        },
+        "tier_name": {
+          "type": "string",
+          "description": "Internal tier identifier",
+          "pattern": "^[a-z_]+$"
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Display name for the tier"
+        },
+        "description": {
+          "type": "string",
+          "description": "Tier description"
+        },
+        "monthly_price": {
+          "type": "number",
+          "description": "Monthly price in USD",
+          "minimum": 0
+        },
+        "annual_price": {
+          "type": "number",
+          "description": "Annual price in USD",
+          "minimum": 0
+        },
+        "max_queries": {
+          "type": ["number", "null"],
+          "description": "Maximum queries allowed (null for unlimited)"
+        },
+        "max_sites": {
+          "type": "number",
+          "description": "Maximum sites allowed"
+        },
+        "agent_api_access": {
+          "type": "boolean",
+          "description": "Whether API access is enabled"
+        },
+        "extra_site_price": {
+          "type": ["number", "null"],
+          "description": "Price for additional sites"
+        },
+        "overage_price": {
+          "type": ["number", "null"],
+          "description": "Price per overage unit"
+        },
+        "custom_embedding_markup": {
+          "type": ["number", "null"],
+          "description": "Markup percentage for custom embeddings"
+        },
+        "features": {
+          "type": "array",
+          "description": "List of tier features",
+          "items": {
+            "type": "string"
+          }
+        },
+        "is_active": {
+          "type": "boolean",
+          "description": "Whether the tier is currently available"
+        },
+        "sort_order": {
+          "type": "number",
+          "description": "Display order"
+        }
+      }
+    }
+  }
+}
