@@ -145,12 +145,11 @@ describe('Enhanced Diagnostics Flow Integration', () => {
     it('should handle mixed indicator results correctly', () => {
       const pageResults = new Map();
       
-      // Simulate results from all 8 core indicators
+      // Simulate results from all 7 core indicators (removed ai_agent_json, robots_txt now with weight 0)
       pageResults.set('https://example.com', [
         { indicatorName: 'llms_txt', category: 'standards', status: 'fail', score: 0, weight: 2.0, recommendation: 'Create llms.txt file' },
         { indicatorName: 'agent_json', category: 'standards', status: 'fail', score: 0, weight: 2.0, recommendation: 'Add agent.json configuration' },
-        { indicatorName: 'ai_agent_json', category: 'standards', status: 'fail', score: 0, weight: 1.5, recommendation: 'Implement AI agent configuration' },
-        { indicatorName: 'robots_txt', category: 'seo', status: 'pass', score: 8, weight: 1.5 },
+        { indicatorName: 'robots_txt', category: 'standards', status: 'not_applicable', score: 0, weight: 0 }, // Access intent only
         { indicatorName: 'canonical_urls', category: 'seo', status: 'pass', score: 9, weight: 1.0 },
         { indicatorName: 'sitemap_xml', category: 'seo', status: 'warn', score: 6, weight: 1.5, recommendation: 'Improve sitemap coverage' },
         { indicatorName: 'seo_basic', category: 'seo', status: 'pass', score: 9, weight: 1.5 },
@@ -169,27 +168,28 @@ describe('Enhanced Diagnostics Flow Integration', () => {
       // Should have all 3 categories represented
       expect(result.categoryScores).toHaveLength(3);
       
-      // Standards category should have low score due to failures
+      // Standards category should have low score due to failures (robots_txt excluded from scoring)
       const standardsCategory = result.categoryScores.find(c => c.category === 'standards');
       expect(standardsCategory).toBeDefined();
       expect(standardsCategory!.score).toBeLessThan(5);
-      expect(standardsCategory!.failedCount).toBe(3);
+      expect(standardsCategory!.failedCount).toBe(2); // Only llms_txt and agent_json counted (robots_txt excluded)
 
       // SEO category should have higher score
       const seoCategory = result.categoryScores.find(c => c.category === 'seo');
       expect(seoCategory).toBeDefined();
       expect(seoCategory!.score).toBeGreaterThan(6);
-      expect(seoCategory!.passedCount).toBe(3);
-      expect(seoCategory!.warningCount).toBe(1);
+      expect(seoCategory!.passedCount).toBe(2); // canonical_urls and seo_basic
+      expect(seoCategory!.warningCount).toBe(1); // sitemap_xml
 
       // AI readiness should reflect poor standards compliance
       expect(result.aiReadinessDetails.factors.hasLlmsTxt).toBe(false);
       expect(result.aiReadinessDetails.factors.hasAgentConfig).toBe(false);
       expect(result.aiReadiness).toBe('poor'); // Low overall score due to failed standards
 
-      // Should have actionable recommendations (may be strategic rather than quick wins)
-      expect(result.summary.quickWins.length + result.summary.strategicImprovements.length).toBeGreaterThan(0);
+      // Should have actionable recommendations or critical issues from failed indicators
       expect(result.summary.criticalIssues.length).toBeGreaterThan(0);
+      // Note: quickWins and strategicImprovements depend on difficulty mapping, so they may be 0
+      expect(result.summary.topRecommendations.length).toBeGreaterThan(0);
     });
 
     it('should calculate accurate scoring and prioritization', () => {
@@ -244,15 +244,14 @@ describe('Enhanced Diagnostics Flow Integration', () => {
   });
 
   describe('Scanner Registry Integration', () => {
-    it('should initialize all 8 core scanners with enhanced details', () => {
+    it('should initialize all 7 core scanners with enhanced details', () => {
       const registry = initializeScanners();
       
       const scannerNames = registry.getAllScanners().map(s => s.name);
       
-      // Verify all 8 core indicators are present
+      // Verify all 7 core indicators are present (removed ai_agent_json)
       expect(scannerNames).toContain('llms_txt');
       expect(scannerNames).toContain('agent_json');
-      expect(scannerNames).toContain('ai_agent_json');
       expect(scannerNames).toContain('robots_txt');
       expect(scannerNames).toContain('canonical_urls');
       expect(scannerNames).toContain('xml_sitemap');
@@ -264,7 +263,7 @@ describe('Enhanced Diagnostics Flow Integration', () => {
         expect(scanner.name).toBeDefined();
         expect(scanner.category).toBeDefined();
         expect(scanner.description).toBeDefined();
-        expect(scanner.weight).toBeGreaterThan(0);
+        expect(scanner.weight).toBeGreaterThanOrEqual(0); // Changed to allow weight 0 for robots.txt
       });
     });
   });

@@ -330,6 +330,10 @@ export class DiagnosticAggregator {
     
     for (const indicator of indicators) {
       const weight = indicator.weight || 1;
+      
+      // Skip indicators with 0 weight (like robots.txt for access intent only)
+      if (weight === 0) continue;
+      
       const score = indicator.score || this.getDefaultScore(indicator.status);
       
       totalWeightedScore += score * weight;
@@ -374,6 +378,10 @@ export class DiagnosticAggregator {
     for (const indicator of indicators) {
       const categoryWeight = categoryWeights[indicator.category] || 1;
       const indicatorWeight = indicator.weight || 1;
+      
+      // Skip indicators with 0 weight (like robots.txt for access intent only)
+      if (indicatorWeight === 0) continue;
+      
       const score = indicator.score || this.getDefaultScore(indicator.status);
       
       const finalWeight = categoryWeight * indicatorWeight;
@@ -387,7 +395,7 @@ export class DiagnosticAggregator {
   private calculateCategoryScores(indicators: ScannerResult[]): CategoryScore[] {
     const categoryMap = new Map<IndicatorCategory, ScannerResult[]>();
     
-    // Group indicators by category
+    // Group indicators by category, excluding zero-weight indicators from scoring
     for (const indicator of indicators) {
       if (!categoryMap.has(indicator.category)) {
         categoryMap.set(indicator.category, []);
@@ -401,9 +409,11 @@ export class DiagnosticAggregator {
       const score = this.calculatePageScore(categoryIndicators);
       const weight = this.getCategoryWeight(category);
       
-      const passedCount = categoryIndicators.filter(i => i.status === 'pass').length;
-      const warningCount = categoryIndicators.filter(i => i.status === 'warn').length;
-      const failedCount = categoryIndicators.filter(i => i.status === 'fail').length;
+      // Count only scored indicators (exclude zero-weight indicators)
+      const scoredIndicators = categoryIndicators.filter(i => (i.weight || 1) > 0);
+      const passedCount = scoredIndicators.filter(i => i.status === 'pass').length;
+      const warningCount = scoredIndicators.filter(i => i.status === 'warn').length;
+      const failedCount = scoredIndicators.filter(i => i.status === 'fail').length;
       
       categoryScores.push({
         category,
@@ -412,7 +422,7 @@ export class DiagnosticAggregator {
         score,
         maxScore: 10,
         weight,
-        indicatorCount: categoryIndicators.length,
+        indicatorCount: scoredIndicators.length,
         passedCount,
         warningCount,
         failedCount,
@@ -440,13 +450,15 @@ export class DiagnosticAggregator {
   }
   
   private generateSummary(indicators: ScannerResult[]): AuditSummary {
-    const totalIndicators = indicators.length;
-    const passedIndicators = indicators.filter(i => i.status === 'pass').length;
-    const warningIndicators = indicators.filter(i => i.status === 'warn').length;
-    const failedIndicators = indicators.filter(i => i.status === 'fail').length;
+    // Only count scored indicators (exclude zero-weight indicators like robots.txt)
+    const scoredIndicators = indicators.filter(i => (i.weight || 1) > 0);
+    const totalIndicators = scoredIndicators.length;
+    const passedIndicators = scoredIndicators.filter(i => i.status === 'pass').length;
+    const warningIndicators = scoredIndicators.filter(i => i.status === 'warn').length;
+    const failedIndicators = scoredIndicators.filter(i => i.status === 'fail').length;
     
-    // Identify critical issues (failed indicators with high weight)
-    const criticalIssues = indicators
+    // Identify critical issues (failed scored indicators with high weight)
+    const criticalIssues = scoredIndicators
       .filter(i => i.status === 'fail' && (i.weight || 1) >= 2)
       .map(i => ({
         indicatorName: i.indicatorName,
@@ -458,8 +470,8 @@ export class DiagnosticAggregator {
       }))
       .slice(0, 5);
     
-    // Get top recommendations
-    const topRecommendations = indicators
+    // Get top recommendations (only from scored indicators)
+    const topRecommendations = scoredIndicators
       .filter(i => i.recommendation && (i.status === 'fail' || i.status === 'warn'))
       .sort((a, b) => (b.weight || 1) - (a.weight || 1))
       .map(i => ({
@@ -484,10 +496,10 @@ export class DiagnosticAggregator {
       topRecommendations,
       completionPercentage,
       aiReadinessPercentage,
-      quickWins: this.generateQuickWins(indicators),
-      strategicImprovements: this.generateStrategicImprovements(indicators),
+      quickWins: this.generateQuickWins(scoredIndicators),
+      strategicImprovements: this.generateStrategicImprovements(scoredIndicators),
       complianceLevel: this.determineComplianceLevel(completionPercentage),
-      complianceGaps: this.identifyComplianceGaps(indicators)
+      complianceGaps: this.identifyComplianceGaps(scoredIndicators)
     };
   }
   
@@ -636,7 +648,7 @@ export class DiagnosticAggregator {
 
   private generateAiReadinessDetails(indicators: ScannerResult[], overallScore: number): AiReadinessDetails {
     const hasLlmsTxt = indicators.some(i => i.indicatorName === 'llms_txt' && i.status === 'pass');
-    const hasAgentConfig = indicators.some(i => (i.indicatorName === 'agent_json' || i.indicatorName === 'ai_agent_json') && i.status === 'pass');
+    const hasAgentConfig = indicators.some(i => i.indicatorName === 'agent_json' && i.status === 'pass');
     const hasStructuredData = indicators.some(i => i.indicatorName === 'json_ld' && i.status === 'pass');
     const hasSeoOptimization = indicators.some(i => i.indicatorName === 'seo_basic' && i.status === 'pass');
     const hasAccessibleContent = indicators.some(i => i.category === 'accessibility' && i.status === 'pass');
@@ -694,7 +706,6 @@ export class DiagnosticAggregator {
     const displayNames: Record<string, string> = {
       'llms_txt': 'LLMS.txt File',
       'agent_json': 'Agent Configuration',
-      'ai_agent_json': 'AI Agent Configuration',
       'robots_txt': 'Robots.txt',
       'canonical_urls': 'Canonical URLs',
       'sitemap_xml': 'XML Sitemap',
@@ -708,7 +719,6 @@ export class DiagnosticAggregator {
     const descriptions: Record<string, string> = {
       'llms_txt': 'AI agent instruction file for crawling guidelines',
       'agent_json': 'Root-level agent configuration file',
-      'ai_agent_json': 'Well-known directory agent configuration',
       'robots_txt': 'Robots.txt file and meta robots directives',
       'canonical_urls': 'Canonical URL implementation for content indexing',
       'sitemap_xml': 'XML sitemap detection and validation',

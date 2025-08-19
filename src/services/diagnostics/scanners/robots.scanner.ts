@@ -1,11 +1,11 @@
-import { BaseScanner, ScannerContext, ScannerResult, IndicatorCategory } from './base';
+import { BaseScanner, ScannerContext, ScannerResult, IndicatorCategory, IndicatorStatus } from './base';
 import { fetchUrl, buildUrl, parseRobotsTxt, extractRobotsMeta } from './base/scanner.utils';
 
 export class RobotsScanner extends BaseScanner {
   name = 'robots_txt';
   category: IndicatorCategory = 'standards';
-  description = 'Analyzes robots.txt and robots meta tags for AI agent directives';
-  weight = 1.5;
+  description = 'Analyzes robots.txt and robots meta tags for AI agent access intent (not scored)';
+  weight = 0; // Set to 0 to exclude from scoring calculations
   
   async scan(context: ScannerContext): Promise<ScannerResult> {
     const robotsTxtUrl = buildUrl(context.siteUrl, '/robots.txt');
@@ -14,7 +14,7 @@ export class RobotsScanner extends BaseScanner {
     let robotsTxtAnalysis: any = null;
     let robotsMetaAnalysis: any = null;
     let combinedScore = 0;
-    let status: 'pass' | 'warn' | 'fail' = 'fail';
+    let status: IndicatorStatus = 'fail';
     let messages: string[] = [];
     
     // Analyze robots.txt
@@ -33,19 +33,15 @@ export class RobotsScanner extends BaseScanner {
       combinedScore += robotsMetaAnalysis.score * 0.4; // 40% weight for meta tags
     }
     
-    // Determine overall status
-    if (combinedScore >= 8) {
-      status = 'pass';
-    } else if (combinedScore >= 5) {
-      status = 'warn';
-    }
+    // For access intent determination only - don't use traditional pass/warn/fail
+    status = 'not_applicable'; // Use not_applicable to exclude from scoring
     
     const accessIntent = this.determineAccessIntent(robotsTxtAnalysis, robotsMetaAnalysis);
     
     return this.createResult({
       status,
-      score: Math.round(combinedScore),
-      message: messages.join('; '),
+      score: 0, // Always 0 to exclude from scoring
+      message: `Access intent: ${accessIntent} - ${messages.join('; ')}`,
       details: {
         statusCode: robotsTxtResult.statusCode,
         contentFound: robotsTxtResult.found,
@@ -68,7 +64,7 @@ export class RobotsScanner extends BaseScanner {
       recommendation: this.generateRecommendation(robotsTxtAnalysis, robotsMetaAnalysis),
       checkedUrl: robotsTxtUrl,
       found: robotsTxtResult.found,
-      isValid: status !== 'fail'
+      isValid: true // Always valid since we're only determining access intent
     });
   }
   
