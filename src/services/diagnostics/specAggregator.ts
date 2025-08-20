@@ -18,7 +18,7 @@ export type SpecIndicator = {
 
 export type SpecCategory = {
   score: number; // computed 0..1
-  indicators: SpecIndicator[];
+  indicator_scores: Record<string, number>; // indicator name -> score
 };
 
 export type SpecWeights = {
@@ -40,6 +40,7 @@ export type LighthouseAIReport = {
     actions: SpecCategory;
     trust: SpecCategory;
   };
+  indicators: Record<string, SpecIndicator>; // indicator name -> full indicator data
   weights: SpecWeights;
   overall: { 
     raw_0_1: number; 
@@ -92,11 +93,13 @@ export class SpecCompliantAggregator {
     // Map indicators to spec categories
     const categoryMapping = this.getCategoryMapping();
     const categories: LighthouseAIReport['categories'] = {
-      discovery: { score: 0, indicators: [] },
-      understanding: { score: 0, indicators: [] },
-      actions: { score: 0, indicators: [] },
-      trust: { score: 0, indicators: [] }
+      discovery: { score: 0, indicator_scores: {} },
+      understanding: { score: 0, indicator_scores: {} },
+      actions: { score: 0, indicator_scores: {} },
+      trust: { score: 0, indicator_scores: {} }
     };
+    
+    const indicators: Record<string, SpecIndicator> = {};
     
     // Process each indicator
     for (const indicator of allIndicators) {
@@ -105,17 +108,20 @@ export class SpecCompliantAggregator {
         profileResult.profile
       );
       
+      // Store in indicators object
+      indicators[specIndicator.name] = specIndicator;
+      
       // Add to appropriate categories based on mapping
       for (const [category, indicatorNames] of Object.entries(categoryMapping)) {
         if (this.indicatorBelongsToCategory(indicator.indicatorName, indicatorNames)) {
-          categories[category as keyof typeof categories].indicators.push(specIndicator);
+          categories[category as keyof typeof categories].indicator_scores[specIndicator.name] = specIndicator.score;
         }
       }
     }
     
     // Calculate category scores
     for (const category of Object.keys(categories) as Array<keyof typeof categories>) {
-      categories[category].score = this.calculateCategoryScore(categories[category].indicators);
+      categories[category].score = this.calculateCategoryScoreFromScores(categories[category].indicator_scores, indicators);
     }
     
     // Merge weights with defaults
@@ -131,6 +137,7 @@ export class SpecCompliantAggregator {
         category: profileResult.profile
       },
       categories,
+      indicators,
       weights,
       overall
     };
@@ -179,15 +186,25 @@ export class SpecCompliantAggregator {
     };
   }
   
-  private calculateCategoryScore(indicators: SpecIndicator[]): number {
-    const included = indicators.filter(i => i.applicability.included_in_category_math);
+  private calculateCategoryScoreFromScores(
+    indicatorScores: Record<string, number>, 
+    allIndicators: Record<string, SpecIndicator>
+  ): number {
+    const includedScores: number[] = [];
     
-    if (included.length === 0) {
+    for (const [indicatorName, score] of Object.entries(indicatorScores)) {
+      const indicator = allIndicators[indicatorName];
+      if (indicator && indicator.applicability.included_in_category_math) {
+        includedScores.push(score);
+      }
+    }
+    
+    if (includedScores.length === 0) {
       return 0;
     }
     
-    const sum = included.reduce((acc, indicator) => acc + indicator.score, 0);
-    return sum / included.length;
+    const sum = includedScores.reduce((acc, score) => acc + score, 0);
+    return sum / includedScores.length;
   }
   
   private calculateOverallScore(

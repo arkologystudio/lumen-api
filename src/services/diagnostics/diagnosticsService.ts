@@ -382,17 +382,20 @@ export class DiagnosticsService {
     
     // Store category scores
     for (const [categoryName, category] of Object.entries(result.categories)) {
-      const includedIndicators = category.indicators.filter(i => i.applicability.included_in_category_math);
+      const categoryIndicators = Object.keys(category.indicator_scores)
+        .map(name => result.indicators[name])
+        .filter(indicator => indicator?.applicability.included_in_category_math);
+      
       await this.prisma.diagnosticScore.create({
         data: {
           audit_id: auditId,
           score_type: 'spec_category',
           category: categoryName,
           score_value: category.score * 100, // Convert to 0-100 for consistency
-          total_indicators: includedIndicators.length,
-          passed_indicators: includedIndicators.filter(i => i.score === 1.0).length,
-          warning_indicators: includedIndicators.filter(i => i.score === 0.5).length,
-          failed_indicators: includedIndicators.filter(i => i.score === 0.0).length
+          total_indicators: categoryIndicators.length,
+          passed_indicators: categoryIndicators.filter(indicator => indicator.score === 1.0).length,
+          warning_indicators: categoryIndicators.filter(indicator => indicator.score === 0.5).length,
+          failed_indicators: categoryIndicators.filter(indicator => indicator.score === 0.0).length
         }
       });
     }
@@ -415,8 +418,8 @@ export class DiagnosticsService {
    * Determine access intent from spec-compliant result
    */
   private determineAccessIntentFromSpec(result: LighthouseAIReport): 'allow' | 'partial' | 'block' {
-    // Check robots.txt indicator in trust category
-    const robotsIndicator = result.categories.trust.indicators.find(i => i.name === 'robots_txt');
+    // Check robots.txt indicator in indicators object
+    const robotsIndicator = result.indicators['robots_txt'];
     if (robotsIndicator?.evidence && typeof robotsIndicator.evidence === 'object') {
       const evidence = robotsIndicator.evidence as any;
       if (evidence.details?.specificData?.accessIntent) {
@@ -439,11 +442,12 @@ export class DiagnosticsService {
         category: 'custom'
       },
       categories: {
-        discovery: { score: 0, indicators: [] },
-        understanding: { score: 0, indicators: [] },
-        actions: { score: 0, indicators: [] },
-        trust: { score: 0, indicators: [] }
+        discovery: { score: 0, indicator_scores: {} },
+        understanding: { score: 0, indicator_scores: {} },
+        actions: { score: 0, indicator_scores: {} },
+        trust: { score: 0, indicator_scores: {} }
       },
+      indicators: {},
       weights: {
         discovery: 0.30,
         understanding: 0.30,

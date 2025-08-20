@@ -81,7 +81,7 @@ export class DiagnosticsController {
       console.log('\nCategory Scores:');
       if (result.result?.categories) {
         Object.entries(result.result.categories).forEach(([category, data]) => {
-          console.log(`  ${category}: ${Math.round((data as any).score * 100)}% (${data.indicators?.length || 0} indicators)`);
+          console.log(`  ${category}: ${Math.round((data as any).score * 100)}% (${Object.keys(data.indicator_scores || {}).length} indicators)`);
         });
       }
       console.log(`Duration: ${result.duration}ms`);
