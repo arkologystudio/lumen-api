@@ -49,7 +49,10 @@ export class ScannerRegistry {
           status: 'fail' as const,
           score: 0.0,
           message: `Scanner failed: ${error.message}`,
-          details: { error: error.message }
+          details: { error: error.message },
+          recommendation: `Fix scanner error: ${error.message}`,
+          found: false,
+          isValid: false
         }))
       )
     );

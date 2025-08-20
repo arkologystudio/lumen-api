@@ -74,6 +74,21 @@ export class CrawlerService {
         // For now, just crawl the homepage unless we implement sitemap parsing
       }
       
+      // Add common pages for better profile detection
+      const baseUrl = new URL(normalizedUrl);
+      const commonPages = [
+        '/shop', '/store', '/products', '/cart', '/checkout',
+        '/about', '/contact', '/blog', '/news', '/help', '/support',
+        '/api', '/docs', '/documentation'
+      ];
+      
+      for (const page of commonPages) {
+        const pageUrl = new URL(page, baseUrl).toString();
+        if (!urlsToCrawl.includes(pageUrl)) {
+          urlsToCrawl.push(pageUrl);
+        }
+      }
+      
       // Limit pages to crawl
       const maxPages = options.maxPages || 5;
       const pagesToCrawl = urlsToCrawl.slice(0, maxPages);

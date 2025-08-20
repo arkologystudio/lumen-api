@@ -34,18 +34,46 @@ export interface CrawlerMetadata {
   crawledAt?: Date;
 }
 
+export interface StandardEvidence {
+  // Basic evidence fields
+  statusCode?: number;
+  contentFound?: boolean;
+  contentPreview?: string;
+  validationScore?: number; // 0-100
+  
+  // Validation results
+  validationIssues?: string[];
+  warnings?: string[];
+  missingFields?: string[];
+  
+  // Scanner-specific data
+  specificData?: Record<string, any>;
+  
+  // AI readiness information
+  aiReadinessFactors?: string[];
+  aiOptimizationOpportunities?: string[];
+  
+  // Technical details
+  checkedUrl?: string;
+  responseTime?: number;
+  error?: string;
+  
+  // Legacy compatibility - allow additional fields for gradual migration
+  [key: string]: any;
+}
+
 export interface ScannerResult {
   indicatorName: string;
   category: IndicatorCategory;
   status: IndicatorStatus;
   score?: number;
   weight?: number;
-  message?: string;
-  details?: Record<string, any>;
-  recommendation?: string;
+  message: string;
+  details: StandardEvidence;
+  recommendation: string;
   checkedUrl?: string;
-  found?: boolean;
-  isValid?: boolean;
+  found: boolean;
+  isValid: boolean;
   llmAnalysis?: LLMAnalysis;
 }
 
@@ -81,12 +109,35 @@ export abstract class BaseScanner implements IScanner {
   }
   
   protected createResult(partial: Partial<ScannerResult>): ScannerResult {
-    return {
+    const defaults: ScannerResult = {
       indicatorName: this.name,
       category: this.category,
       status: 'not_applicable',
       weight: this.weight,
-      ...partial
+      message: '',
+      details: this.createStandardEvidence(),
+      recommendation: '',
+      found: false,
+      isValid: false
+    };
+    
+    return {
+      ...defaults,
+      ...partial,
+      details: {
+        ...defaults.details,
+        ...partial.details
+      }
+    };
+  }
+  
+  protected createStandardEvidence(evidence: Partial<StandardEvidence> = {}): StandardEvidence {
+    return {
+      contentFound: false,
+      validationScore: 0,
+      aiReadinessFactors: [],
+      aiOptimizationOpportunities: [],
+      ...evidence
     };
   }
   

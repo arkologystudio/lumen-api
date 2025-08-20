@@ -2,10 +2,10 @@ import { BaseScanner, ScannerContext, ScannerResult, IndicatorCategory } from '.
 import { fetchUrl, buildUrl } from './base/scanner.utils';
 
 interface LlmsTxtContent {
-  userAgent?: string;
-  disallow?: string[];
-  allow?: string[];
-  crawlDelay?: number;
+  title?: string;
+  summary?: string;
+  sections?: { [key: string]: Array<{ title: string; url: string; description?: string }> };
+  hasValidStructure?: boolean;
   [key: string]: any;
 }
 
@@ -28,21 +28,26 @@ export class LlmsTxtScanner extends BaseScanner {
         statusCode: result.statusCode,
         error: result.error,
         contentFound: false,
-        contentPreview: null,
+        contentPreview: undefined,
         validationIssues: ['File not found at /llms.txt'],
         specificData: {
           checkedPaths: ['/llms.txt'],
-          expectedFormat: 'Plain text with directives like User-agent, Allow, Disallow',
-          examples: ['User-agent: *', 'Allow: /api/', 'Crawl-delay: 1']
+          expectedFormat: 'Markdown file with H1 title, blockquote summary, and H2 sections with links',
+          examples: [
+            '# Project Name',
+            '> Brief project summary',
+            '## Documentation',
+            '- [Getting Started](url): Description'
+          ]
         },
         aiReadinessFactors: [],
         aiOptimizationOpportunities: [
-          'Implement llms.txt file to provide AI agents with crawling instructions',
-          'Define allowed/disallowed paths for AI crawlers',
-          'Set appropriate crawl delays to manage server load'
+          'Implement llms.txt file to provide AI agents with structured content overview',
+          'Create clear sections organizing your key documentation and resources',
+          'Include descriptive links to help AI understand your content structure'
         ]
       },
-      recommendation: 'Create an llms.txt file at the root of your website to provide instructions for AI agents',
+      recommendation: 'Create an llms.txt file at the root of your website to provide AI agents with a structured overview of your content',
       checkedUrl: llmsTxtUrl,
       found: false,
       isValid: false
@@ -65,21 +70,23 @@ export class LlmsTxtScanner extends BaseScanner {
           validationScore: 0.5,
           specificData: {
             parsedContent: validation.parsedContent,
-            directiveCount: validation.directiveCount,
-            detectedDirectives: Object.keys(validation.parsedContent),
-            contentLength: result.content?.length || 0
+            sectionCount: validation.sectionCount,
+            detectedSections: Object.keys(validation.parsedContent.sections || {}),
+            contentLength: result.content?.length || 0,
+            hasTitle: !!validation.parsedContent.title,
+            hasSummary: !!validation.parsedContent.summary
           },
           aiReadinessFactors: [
             'File exists but has validation issues',
             'Partial AI agent compatibility'
           ],
           aiOptimizationOpportunities: [
-            'Fix validation issues to improve AI agent compatibility',
-            'Add missing required directives',
-            'Ensure proper formatting and syntax'
+            'Fix validation issues to improve AI content understanding',
+            'Add missing required Markdown structure elements',
+            'Ensure proper Markdown formatting and syntax'
           ]
         },
-        recommendation: 'Fix the issues in your llms.txt file to ensure proper AI agent compatibility',
+        recommendation: 'Fix the issues in your llms.txt file to ensure proper AI content understanding',
         checkedUrl: llmsTxtUrl,
         found: true,
         isValid: false
@@ -95,24 +102,23 @@ export class LlmsTxtScanner extends BaseScanner {
         contentFound: true,
         contentPreview: result.content?.substring(0, 200) + (result.content && result.content.length > 200 ? '...' : ''),
         validationScore: 1.0,
-        specificData: {
-          parsedContent: validation.parsedContent,
-          directiveCount: validation.directiveCount,
-          detectedDirectives: Object.keys(validation.parsedContent),
-          contentLength: result.content?.length || 0,
-          hasUserAgent: !!validation.parsedContent.userAgent,
-          hasAllowDirectives: !!validation.parsedContent.allow?.length,
-          hasDisallowDirectives: !!validation.parsedContent.disallow?.length,
-          hasCrawlDelay: !!validation.parsedContent.crawlDelay
-        },
+                  specificData: {
+            parsedContent: validation.parsedContent,
+            sectionCount: validation.sectionCount,
+            detectedSections: Object.keys(validation.parsedContent.sections || {}),
+            contentLength: result.content?.length || 0,
+            hasTitle: !!validation.parsedContent.title,
+            hasSummary: !!validation.parsedContent.summary,
+            linkCount: Object.values(validation.parsedContent.sections || {}).flat().length
+          },
         aiReadinessFactors: [
-          'Valid llms.txt file provides AI agent instructions',
-          'Proper directive formatting detected',
-          'AI-friendly crawling guidelines established'
+          'Valid llms.txt file provides structured content overview',
+          'Proper Markdown formatting detected',
+          'AI-friendly content organization established'
         ],
         aiOptimizationOpportunities: [
-          'Well-configured for AI agent crawling',
-          'Consider adding specific directives for new AI agents as they emerge'
+          'Well-configured for AI content understanding',
+          'Consider adding more structured sections as your content grows'
         ]
       },
       checkedUrl: llmsTxtUrl,
@@ -125,79 +131,98 @@ export class LlmsTxtScanner extends BaseScanner {
     isValid: boolean;
     issues: string[];
     parsedContent: LlmsTxtContent;
-    directiveCount: number;
+    sectionCount: number;
   } {
     const issues: string[] = [];
-    const parsedContent: LlmsTxtContent = {};
-    let directiveCount = 0;
+    const parsedContent: LlmsTxtContent = { sections: {} };
+    let sectionCount = 0;
     
     if (!content.trim()) {
       issues.push('File is empty');
-      return { isValid: false, issues, parsedContent, directiveCount };
+      return { isValid: false, issues, parsedContent, sectionCount };
     }
     
-    const lines = content.split('\n').map(line => line.trim());
-    // let currentUserAgent: string | null = null;
+    const lines = content.split('\n');
+    let hasTitle = false;
+    let hasSummary = false;
+    let currentSection: string | null = null;
     
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const line = lines[i].trim();
+      const lineNumber = i + 1;
       
-      // Skip empty lines and comments
-      if (!line || line.startsWith('#')) continue;
+      // Skip empty lines
+      if (!line) continue;
       
-      // Parse directive
-      const colonIndex = line.indexOf(':');
-      if (colonIndex === -1) {
-        issues.push(`Line ${i + 1}: Invalid format, missing colon`);
+      // Check for H1 title (only the first one counts)
+      if (line.startsWith('# ') && !hasTitle) {
+        parsedContent.title = line.substring(2).trim();
+        hasTitle = true;
         continue;
       }
       
-      const directive = line.substring(0, colonIndex).trim().toLowerCase();
-      const value = line.substring(colonIndex + 1).trim();
-      
-      directiveCount++;
-      
-      switch (directive) {
-        case 'user-agent':
-          // currentUserAgent = value;
-          parsedContent.userAgent = value;
-          break;
-          
-        case 'disallow':
-          if (!parsedContent.disallow) parsedContent.disallow = [];
-          parsedContent.disallow.push(value);
-          break;
-          
-        case 'allow':
-          if (!parsedContent.allow) parsedContent.allow = [];
-          parsedContent.allow.push(value);
-          break;
-          
-        case 'crawl-delay':
-          const delay = parseInt(value, 10);
-          if (isNaN(delay) || delay < 0) {
-            issues.push(`Line ${i + 1}: Invalid crawl-delay value`);
-          } else {
-            parsedContent.crawlDelay = delay;
-          }
-          break;
-          
-        default:
-          // Store other directives as custom fields
-          parsedContent[directive] = value;
+      // Check for blockquote summary
+      if (line.startsWith('> ')) {
+        if (!parsedContent.summary) {
+          parsedContent.summary = line.substring(2).trim();
+        } else {
+          // Append to existing summary
+          parsedContent.summary += ' ' + line.substring(2).trim();
+        }
+        hasSummary = true;
+        continue;
       }
+      
+      // Check for H2 sections
+      if (line.startsWith('## ')) {
+        currentSection = line.substring(3).trim();
+        if (currentSection && !parsedContent.sections![currentSection]) {
+          parsedContent.sections![currentSection] = [];
+          sectionCount++;
+        }
+        continue;
+      }
+      
+      // Check for markdown links in sections
+      if (currentSection && line.startsWith('- [')) {
+        const linkMatch = line.match(/^- \[([^\]]+)\]\(([^)]+)\)(?::\s*(.*))?/);
+        if (linkMatch) {
+          const [, title, url, description] = linkMatch;
+          parsedContent.sections![currentSection].push({
+            title: title.trim(),
+            url: url.trim(),
+            description: description?.trim()
+          });
+        } else {
+          // Invalid link format
+          issues.push(`Line ${lineNumber}: Invalid markdown link format`);
+        }
+        continue;
+      }
+      
+      // For content that isn't a title, summary, section header, or link, 
+      // we're more permissive since llms.txt can contain additional markdown content
+      // We only flag obvious structural issues
     }
     
-    // Validate that there's at least a User-agent directive
-    if (!parsedContent.userAgent) {
-      issues.push('Missing User-agent directive');
+    // Validation checks based on llms.txt specification
+    if (!hasTitle) {
+      issues.push('Missing required H1 title (should start with "# ")');
     }
+    
+    // Summary is recommended but not strictly required in some implementations
+    // Many valid llms.txt files organize content in sections without blockquote summaries
+    if (!hasSummary && sectionCount === 0) {
+      issues.push('Consider adding a blockquote summary (starting with "> ") to provide context');
+    }
+    
+    parsedContent.hasValidStructure = hasTitle && (sectionCount > 0 || hasSummary);
     
     return {
-      isValid: issues.length === 0 && directiveCount > 0,
+      isValid: issues.length === 0 && hasTitle,
       issues,
       parsedContent,
-      directiveCount
+      sectionCount
     };
   }
 }

@@ -1,4 +1,4 @@
-import { ScannerResult } from './scanners/base';
+import { ScannerResult, StandardEvidence } from './scanners/base';
 import { SiteProfile, SiteProfileDetector } from './profileDetector';
 import { ApplicabilityMatrix } from './applicabilityMatrix';
 
@@ -13,7 +13,7 @@ export type SpecIndicator = {
   name: string;
   score: number; // 0..1
   applicability: SpecApplicability;
-  evidence?: Record<string, unknown>;
+  evidence: StandardEvidence;
 };
 
 export type SpecCategory = {
@@ -33,6 +33,11 @@ export type LighthouseAIReport = {
     url: string; 
     scan_date: string; 
     category: string; // site profile
+    profile_detection: {
+      confidence: number;
+      method: 'heuristic' | 'declared';
+      signals: string[];
+    };
   };
   categories: {
     discovery: SpecCategory;
@@ -134,7 +139,12 @@ export class SpecCompliantAggregator {
       site: {
         url: siteUrl,
         scan_date: new Date().toISOString().split('T')[0],
-        category: profileResult.profile
+        category: profileResult.profile,
+        profile_detection: {
+          confidence: profileResult.confidence,
+          method: profileResult.method,
+          signals: profileResult.signals
+        }
       },
       categories,
       indicators,
@@ -175,14 +185,7 @@ export class SpecCompliantAggregator {
         reason: applicability.reason,
         included_in_category_math: applicability.included_in_category_math
       },
-      evidence: {
-        status: indicator.status,
-        message: indicator.message,
-        details: indicator.details,
-        found: indicator.found,
-        isValid: indicator.isValid,
-        checkedUrl: indicator.checkedUrl
-      }
+      evidence: indicator.details
     };
   }
   

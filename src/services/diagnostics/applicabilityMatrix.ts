@@ -51,11 +51,11 @@ export class ApplicabilityMatrix {
     },
     llms_txt: {
       blog_content: 'required',
-      ecommerce: 'optional',
-      saas_app: 'optional',
+      ecommerce: 'required',
+      saas_app: 'required',
       kb_support: 'required',
       gov_nontransacting: 'required',
-      custom: 'optional'
+      custom: 'required'
     },
     json_ld: {
       blog_content: 'required',
@@ -98,6 +98,7 @@ export class ApplicabilityMatrix {
       custom: 'required'
     }
   };
+
   
   /**
    * Get applicability for an indicator based on site profile

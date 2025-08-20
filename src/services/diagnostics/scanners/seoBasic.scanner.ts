@@ -24,6 +24,10 @@ interface SeoAnalysis {
     hasBasicOg: boolean;
     missingTags: string[];
   };
+  navigation: {
+    menuItems: string[];
+    linkTexts: string[];
+  };
 }
 
 export class SeoBasicScanner extends BaseScanner {
@@ -37,9 +41,12 @@ export class SeoBasicScanner extends BaseScanner {
       return this.createResult({
         status: 'not_applicable',
         message: 'No HTML content available for SEO analysis',
-        details: {
-          reason: 'Page HTML not provided'
-        }
+        details: this.createStandardEvidence({
+          contentFound: false,
+          validationScore: 0,
+          error: 'Page HTML not provided',
+          aiOptimizationOpportunities: ['Ensure page HTML is available for analysis']
+        })
       });
     }
     
@@ -51,14 +58,16 @@ export class SeoBasicScanner extends BaseScanner {
       status,
       score,
       message: this.generateMessage(analysis),
-      details: {
+      details: this.createStandardEvidence({
         contentFound: true,
-        validationScore: score,
+        validationScore: Math.round(score * 100),
         specificData: analysis,
         aiReadinessFactors: this.generateAiReadinessFactors(analysis),
         aiOptimizationOpportunities: this.generateOptimizationOpportunities(analysis, status)
-      },
-      recommendation: this.generateRecommendations(analysis)
+      }),
+      recommendation: this.generateRecommendations(analysis),
+      found: true,
+      isValid: score > 0
     });
   }
   
@@ -77,11 +86,15 @@ export class SeoBasicScanner extends BaseScanner {
     // Analyze Open Graph
     const ogAnalysis = this.analyzeOpenGraph(metaTags);
     
+    // Analyze navigation
+    const navigationAnalysis = this.analyzeNavigation(html);
+    
     return {
       title: titleAnalysis,
       metaDescription: metaDescAnalysis,
       headings: headingsAnalysis,
-      openGraph: ogAnalysis
+      openGraph: ogAnalysis,
+      navigation: navigationAnalysis
     };
   }
   
@@ -184,6 +197,49 @@ export class SeoBasicScanner extends BaseScanner {
     return {
       hasBasicOg: missingTags.length === 0,
       missingTags
+    };
+  }
+  
+  private analyzeNavigation(html: string): SeoAnalysis['navigation'] {
+    const menuItems: string[] = [];
+    const linkTexts: string[] = [];
+    
+    // Extract navigation menu items (common nav selectors)
+    const navSelectors = [
+      /<nav[^>]*>(.*?)<\/nav>/gis,
+      /<ul[^>]*class="[^"]*(?:nav|menu)[^"]*"[^>]*>(.*?)<\/ul>/gis,
+      /<div[^>]*class="[^"]*(?:nav|menu|header)[^"]*"[^>]*>(.*?)<\/div>/gis
+    ];
+    
+    for (const selector of navSelectors) {
+      let match;
+      while ((match = selector.exec(html)) !== null) {
+        const navContent = match[1];
+        // Extract link texts from navigation
+        const linkRegex = /<a[^>]*>([^<]+)<\/a>/gi;
+        let linkMatch;
+        while ((linkMatch = linkRegex.exec(navContent)) !== null) {
+          const linkText = linkMatch[1].trim();
+          if (linkText && linkText.length > 0 && linkText.length < 50) {
+            menuItems.push(linkText);
+          }
+        }
+      }
+    }
+    
+    // Extract all link texts (limited to meaningful ones)
+    const allLinksRegex = /<a[^>]*>([^<]+)<\/a>/gi;
+    let linkMatch;
+    while ((linkMatch = allLinksRegex.exec(html)) !== null) {
+      const linkText = linkMatch[1].trim();
+      if (linkText && linkText.length > 2 && linkText.length < 30) {
+        linkTexts.push(linkText);
+      }
+    }
+    
+    return {
+      menuItems: [...new Set(menuItems)].slice(0, 20), // Dedupe and limit
+      linkTexts: [...new Set(linkTexts)].slice(0, 50) // Dedupe and limit
     };
   }
   

@@ -4,67 +4,59 @@ import { fetchUrl, buildUrl, parseRobotsTxt, extractRobotsMeta } from './base/sc
 export class RobotsScanner extends BaseScanner {
   name = 'robots_txt';
   category: IndicatorCategory = 'standards';
-  description = 'Analyzes robots.txt and robots meta tags for AI agent access intent (not scored)';
-  weight = 0; // Set to 0 to exclude from scoring calculations
+  description = 'Checks for robots.txt file presence (binary scoring: exists = 100%, missing = 0%)';
+  weight = 1.0;
   
   async scan(context: ScannerContext): Promise<ScannerResult> {
     const robotsTxtUrl = buildUrl(context.siteUrl, '/robots.txt');
     const robotsTxtResult = await fetchUrl(robotsTxtUrl);
     
+    // Simple binary scoring: exists = 1.0 (100%), missing = 0.0 (0%)
+    const score = robotsTxtResult.found ? 1.0 : 0.0;
+    const status: IndicatorStatus = robotsTxtResult.found ? 'pass' : 'fail';
+    const message = robotsTxtResult.found ? 'robots.txt file found' : 'robots.txt file not found';
+    
+    // Still analyze for access intent determination (used elsewhere in system)
     let robotsTxtAnalysis: any = null;
     let robotsMetaAnalysis: any = null;
-    let combinedScore = 0;
-    let status: IndicatorStatus = 'fail';
-    let messages: string[] = [];
     
-    // Analyze robots.txt
     if (robotsTxtResult.found) {
       robotsTxtAnalysis = this.analyzeRobotsTxt(robotsTxtResult.content || '');
-      messages.push(robotsTxtAnalysis.message);
-      combinedScore += robotsTxtAnalysis.score * 0.6; // 60% weight for robots.txt
-    } else {
-      messages.push('No robots.txt file found');
     }
     
-    // Analyze robots meta tags if page HTML is available
     if (context.pageHtml) {
       robotsMetaAnalysis = this.analyzeRobotsMeta(context.pageHtml);
-      messages.push(robotsMetaAnalysis.message);
-      combinedScore += robotsMetaAnalysis.score * 0.4; // 40% weight for meta tags
     }
-    
-    // For access intent determination only - don't use traditional pass/warn/fail
-    status = 'not_applicable'; // Use not_applicable to exclude from scoring
     
     const accessIntent = this.determineAccessIntent(robotsTxtAnalysis, robotsMetaAnalysis);
     
     return this.createResult({
       status,
-      score: 0.0, // Always 0 to exclude from scoring
-      message: `Access intent: ${accessIntent} - ${messages.join('; ')}`,
-      details: {
+      score,
+      message,
+      details: this.createStandardEvidence({
         statusCode: robotsTxtResult.statusCode,
         contentFound: robotsTxtResult.found,
         contentPreview: robotsTxtResult.found ? 
           robotsTxtResult.content?.substring(0, 200) + (robotsTxtResult.content && robotsTxtResult.content.length > 200 ? '...' : '') 
-          : null,
-        validationScore: Math.round(combinedScore),
+          : undefined,
+        validationScore: Math.round(score * 100),
         specificData: {
           robotsTxt: robotsTxtAnalysis,
           robotsMeta: robotsMetaAnalysis,
           accessIntent,
-          checkedUrl: robotsTxtUrl,
           aiAgentRestrictions: robotsTxtAnalysis?.aiUserAgents || [],
           sitemapReferences: robotsTxtAnalysis?.sitemapCount || 0,
           hasAiDirectives: robotsTxtAnalysis?.hasAiDirectives || false
         },
-        aiReadinessFactors: this.generateAiReadinessFactors(robotsTxtAnalysis, robotsMetaAnalysis),
-        aiOptimizationOpportunities: this.generateAiOptimizationOpportunities(robotsTxtAnalysis, robotsMetaAnalysis, accessIntent)
-      },
-      recommendation: this.generateRecommendation(robotsTxtAnalysis, robotsMetaAnalysis),
+        aiReadinessFactors: this.generateAiReadinessFactors(robotsTxtResult.found),
+        aiOptimizationOpportunities: this.generateAiOptimizationOpportunities(robotsTxtResult.found),
+        checkedUrl: robotsTxtUrl
+      }),
+      recommendation: this.generateRecommendation(robotsTxtResult.found),
       checkedUrl: robotsTxtUrl,
       found: robotsTxtResult.found,
-      isValid: true // Always valid since we're only determining access intent
+      isValid: true
     });
   }
   
@@ -168,71 +160,21 @@ export class RobotsScanner extends BaseScanner {
     }
   }
   
-  private generateRecommendation(robotsTxt: any, robotsMeta: any): string {
-    const recommendations: string[] = [];
-    
-    if (!robotsTxt || !robotsTxt.hasContent) {
-      recommendations.push('Create a robots.txt file to control crawler access');
-    }
-    
-    if (!robotsTxt?.hasAiDirectives && !robotsMeta?.hasAiDirectives) {
-      recommendations.push('Consider adding AI-specific directives (e.g., User-agent: GPTBot) to explicitly control AI crawler access');
-    }
-    
-    if (!robotsTxt?.hasSitemaps) {
-      recommendations.push('Add sitemap references to robots.txt for better discoverability');
-    }
-    
-    return recommendations.length > 0 
-      ? recommendations.join('. ')
-      : 'Robots configuration is well-optimized for AI agents';
+  private generateRecommendation(hasRobotsTxt: boolean): string {
+    return hasRobotsTxt 
+      ? 'robots.txt file exists'
+      : 'Create a robots.txt file to control crawler access';
   }
 
-  private generateAiReadinessFactors(robotsTxtAnalysis: any, robotsMetaAnalysis: any): string[] {
-    const factors: string[] = [];
-    
-    if (robotsTxtAnalysis?.hasContent) {
-      factors.push('Robots.txt file exists');
-    }
-    
-    if (robotsTxtAnalysis?.hasSitemaps) {
-      factors.push('Sitemap references found in robots.txt');
-    }
-    
-    if (robotsTxtAnalysis?.hasAiDirectives) {
-      factors.push('AI-specific directives configured');
-    }
-    
-    if (robotsMetaAnalysis?.hasMetaRobots) {
-      factors.push('Meta robots tags implemented');
-    }
-    
-    return factors;
+  private generateAiReadinessFactors(hasRobotsTxt: boolean): string[] {
+    return hasRobotsTxt 
+      ? ['Robots.txt file exists for crawler guidance']
+      : [];
   }
 
-  private generateAiOptimizationOpportunities(robotsTxtAnalysis: any, robotsMetaAnalysis: any, accessIntent: string): string[] {
-    const opportunities: string[] = [];
-    
-    if (!robotsTxtAnalysis?.hasContent) {
-      opportunities.push('Create robots.txt file to guide AI crawlers');
-    }
-    
-    if (!robotsTxtAnalysis?.hasAiDirectives) {
-      opportunities.push('Add AI-specific user-agent directives (GPTBot, Claude-Web, etc.)');
-    }
-    
-    if (!robotsTxtAnalysis?.hasSitemaps) {
-      opportunities.push('Add sitemap references to robots.txt for better discovery');
-    }
-    
-    if (accessIntent === 'block') {
-      opportunities.push('Consider allowing AI crawlers for better discoverability');
-    }
-    
-    if (!robotsMetaAnalysis?.hasMetaRobots) {
-      opportunities.push('Implement meta robots tags for page-level control');
-    }
-    
-    return opportunities;
+  private generateAiOptimizationOpportunities(hasRobotsTxt: boolean): string[] {
+    return hasRobotsTxt 
+      ? []
+      : ['Create robots.txt file to guide AI crawlers'];
   }
 }

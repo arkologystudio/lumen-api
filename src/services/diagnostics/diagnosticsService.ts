@@ -439,7 +439,12 @@ export class DiagnosticsService {
       site: {
         url: audit.site?.url || 'unknown',
         scan_date: new Date().toISOString().split('T')[0],
-        category: 'custom'
+        category: 'custom',
+        profile_detection: {
+          confidence: 0.0,
+          method: 'heuristic',
+          signals: ['Cached result - no profile detection']
+        }
       },
       categories: {
         discovery: { score: 0, indicator_scores: {} },

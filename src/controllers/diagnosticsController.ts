@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { DiagnosticsService, RunDiagnosticOptions } from '../services/diagnostics';
 import { PrismaClient } from '@prisma/client';
+import { SiteProfile } from '../services/diagnostics/profileDetector';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -29,9 +30,9 @@ export class DiagnosticsController {
    */
   scanUrl = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { url } = req.body;
+      const { url, site_category } = req.body;
       
-      console.log(`[Diagnostics] Anonymous scan triggered - URL: ${url}`);
+      console.log(`[Diagnostics] Anonymous scan triggered - URL: ${url}, Category: ${site_category || 'auto-detect'}`);
       
       if (!url) {
         res.status(400).json({ error: 'url is required' });
@@ -46,13 +47,24 @@ export class DiagnosticsController {
         return;
       }
       
+      // Validate site_category if provided
+      const validCategories = ['blog_content', 'ecommerce', 'saas_app', 'kb_support', 'gov_nontransacting', 'custom'];
+      if (site_category && !validCategories.includes(site_category)) {
+        res.status(400).json({ 
+          error: 'Invalid site_category', 
+          validCategories 
+        });
+        return;
+      }
+      
       // Anonymous scan options with strict server-managed limits
       const anonymousOptions = {
         auditType: 'quick' as const,
         includeSitemap: false,
         maxPages: 3, // Server-managed limit for anonymous scans
         storeRawData: false,
-        skipCache: true // Always fresh for anonymous scans
+        skipCache: true, // Always fresh for anonymous scans
+        declaredProfile: site_category as SiteProfile | undefined
       };
       
       // Run anonymous diagnostic scan
@@ -126,13 +138,26 @@ export class DiagnosticsController {
         return;
       }
       
+      // Validate site_category if provided
+      if (options.site_category) {
+        const validCategories = ['blog_content', 'ecommerce', 'saas_app', 'kb_support', 'gov_nontransacting', 'custom'];
+        if (!validCategories.includes(options.site_category)) {
+          res.status(400).json({ 
+            error: 'Invalid site_category', 
+            validCategories 
+          });
+          return;
+        }
+      }
+      
       // Check subscription tier for advanced features
       const runOptions: RunDiagnosticOptions = {
         auditType: options.auditType || 'full',
         includeSitemap: this.hasProAccess(req.user?.subscription_tier) ? options.includeSitemap : false,
         maxPages: this.getMaxPages(req.user?.subscription_tier, options.maxPages),
         storeRawData: this.hasProAccess(req.user?.subscription_tier) ? options.storeRawData : false,
-        skipCache: options.skipCache || false
+        skipCache: options.skipCache || false,
+        declaredProfile: options.site_category as SiteProfile | undefined
       };
       
       // Start diagnostic scan
