@@ -43,7 +43,7 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('fail');
-      expect(result.score).toBe(0);
+      expect(result.score).toBe(0.0);
       expect(result.message).toBe('No llms.txt file found');
       expect(result.found).toBe(false);
       expect(result.isValid).toBe(false);
@@ -80,13 +80,13 @@ Crawl-delay: 10`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.score).toBe(10);
+      expect(result.score).toBe(1.0);
       expect(result.message).toBe('Valid llms.txt file found');
       expect(result.found).toBe(true);
       expect(result.isValid).toBe(true);
-      expect(result.details?.parsedContent).toBeDefined();
-      expect(result.details?.parsedContent.userAgent).toBe('*');
-      expect(result.details?.directives).toBeGreaterThan(0);
+      expect(result.details?.specificData?.parsedContent).toBeDefined();
+      expect(result.details?.specificData?.parsedContent.userAgent).toBe('*');
+      expect(result.details?.specificData?.directiveCount).toBeGreaterThan(0);
     });
 
     it('should handle complex llms.txt with multiple directives', async () => {
@@ -111,10 +111,10 @@ custom-directive: value`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.score).toBe(10);
-      expect(result.details?.parsedContent.userAgent).toBe('Claude-Bot');
-      expect(result.details?.parsedContent.disallow).toContain('/admin/');
-      expect(result.details?.parsedContent['custom-directive']).toBe('value');
+      expect(result.score).toBe(1.0);
+      expect(result.details?.specificData?.parsedContent.userAgent).toBe('Claude-Bot');
+      expect(result.details?.specificData?.parsedContent.disallow).toContain('/admin/');
+      expect(result.details?.specificData?.parsedContent['custom-directive']).toBe('value');
     });
   });
 
@@ -129,9 +129,9 @@ custom-directive: value`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn');
-      expect(result.score).toBe(5);
+      expect(result.score).toBe(0.5);
       expect(result.message).toBe('llms.txt file found but has issues');
-      expect(result.details?.issues).toContain('File is empty');
+      expect(result.details?.validationIssues).toContain('File is empty');
     });
 
     it('should warn for llms.txt missing User-agent', async () => {
@@ -147,8 +147,8 @@ Allow: /public/`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn');
-      expect(result.score).toBe(5);
-      expect(result.details?.issues).toContain('Missing User-agent directive');
+      expect(result.score).toBe(0.5);
+      expect(result.details?.validationIssues).toContain('Missing User-agent directive');
     });
 
     it('should warn for malformed directives', async () => {
@@ -166,8 +166,8 @@ Crawl-delay: invalid-number`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.issues).toContain('Line 2: Invalid format, missing colon');
-      expect(result.details?.issues).toContain('Line 4: Invalid crawl-delay value');
+      expect(result.details?.validationIssues).toContain('Line 2: Invalid format, missing colon');
+      expect(result.details?.validationIssues).toContain('Line 4: Invalid crawl-delay value');
     });
 
     it('should handle whitespace-only content', async () => {
@@ -180,7 +180,7 @@ Crawl-delay: invalid-number`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.issues).toContain('File is empty');
+      expect(result.details?.validationIssues).toContain('File is empty');
     });
   });
 
@@ -203,7 +203,7 @@ Allow: /public/`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.directives).toBe(3); // User-agent, Disallow, Allow
+      expect(result.details?.specificData?.directiveCount).toBe(3); // User-agent, Disallow, Allow
     });
 
     it('should handle mixed case directives', async () => {
@@ -221,9 +221,9 @@ crawl-delay: 5`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.parsedContent.userAgent).toBe('*');
-      expect(result.details?.parsedContent.disallow).toContain('/private/');
-      expect(result.details?.parsedContent.allow).toContain('/public/');
+      expect(result.details?.specificData?.parsedContent.userAgent).toBe('*');
+      expect(result.details?.specificData?.parsedContent.disallow).toContain('/private/');
+      expect(result.details?.specificData?.parsedContent.allow).toContain('/public/');
     });
 
     it('should handle special characters in values', async () => {
@@ -241,7 +241,7 @@ Crawl-delay: 0.5`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.parsedContent.userAgent).toBe('MyBot/1.0 (+http://example.com/bot)');
+      expect(result.details?.specificData?.parsedContent.userAgent).toBe('MyBot/1.0 (+http://example.com/bot)');
     });
 
     it('should handle very large files', async () => {
@@ -256,7 +256,7 @@ Crawl-delay: 0.5`;
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.directives).toBeGreaterThan(1000);
+      expect(result.details?.specificData?.directiveCount).toBeGreaterThan(1000);
     });
   });
 

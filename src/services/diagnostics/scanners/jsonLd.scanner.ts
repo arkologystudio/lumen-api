@@ -58,7 +58,7 @@ export class JsonLdScanner extends BaseScanner {
     if (!analysis.found) {
       return this.createResult({
         status: 'fail',
-        score: 0,
+        score: 0.0,
         message: 'No JSON-LD structured data found',
         details: {
           contentFound: false,
@@ -76,7 +76,7 @@ export class JsonLdScanner extends BaseScanner {
     }
     
     const score = this.calculateJsonLdScore(analysis);
-    const status = score >= 8 ? 'pass' : score >= 3 ? 'warn' : 'fail';
+    const status = score >= 0.8 ? 'pass' : score >= 0.3 ? 'warn' : 'fail';
     
     return this.createResult({
       status,
@@ -224,45 +224,44 @@ export class JsonLdScanner extends BaseScanner {
   }
   
   private calculateJsonLdScore(analysis: JsonLdAnalysis): number {
-    let score = 0;
+    let score = 0.0;
     
     // Base score for having JSON-LD
     if (analysis.found) {
-      score += 5; // Increased base score
+      score += 0.5; // Base score in 0-1 range
     }
     
     // Points for important types
     if (analysis.hasOrganization || analysis.hasWebSite) {
-      score += 3; // Increased importance score
+      score += 0.3; // Essential schema types
     }
     
     if (analysis.hasWebPage || analysis.hasBreadcrumb) {
-      score += 1;
+      score += 0.1;
     }
     
     if (analysis.hasProduct || analysis.hasArticle) {
-      score += 2; // Increased bonus for content types
+      score += 0.2; // Content-specific types
     }
     
     // Points for AI-relevant types
     if (analysis.aiRelevantTypes.length > 0) {
-      score += Math.min(3, analysis.aiRelevantTypes.length * 1); // Increased multiplier
+      score += Math.min(0.3, analysis.aiRelevantTypes.length * 0.1);
     }
     
     // Multiple structured data objects is good
     if (analysis.count > 1) {
-      score += 1;
+      score += 0.1;
     }
     
-    // Deduct for validation issues (do this after positive scoring)
+    // Deduct for validation issues
     if (analysis.validationIssues.length > 0) {
-      // Be more lenient with Article validation (common to have partial data)
       const hasArticleIssues = analysis.validationIssues.some(issue => issue.includes('Article'));
-      const penalty = hasArticleIssues ? 0.5 : 1.0;
-      score -= Math.min(4, analysis.validationIssues.length * penalty);
+      const penalty = hasArticleIssues ? 0.05 : 0.1;
+      score -= Math.min(0.4, analysis.validationIssues.length * penalty);
     }
     
-    return Math.max(0, Math.min(10, Math.round(score)));
+    return Math.max(0.0, Math.min(1.0, score));
   }
   
   private generateMessage(analysis: JsonLdAnalysis): string {

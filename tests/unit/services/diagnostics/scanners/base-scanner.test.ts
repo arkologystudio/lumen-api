@@ -122,10 +122,10 @@ describe('BaseScanner', () => {
 
   describe('calculateScore helper', () => {
     it('should return correct scores for each status', () => {
-      expect(testScanner['calculateScore']('pass')).toBe(10);
-      expect(testScanner['calculateScore']('warn')).toBe(5);
-      expect(testScanner['calculateScore']('fail')).toBe(0);
-      expect(testScanner['calculateScore']('not_applicable')).toBe(0);
+      expect(testScanner['calculateScore']('pass')).toBe(1.0);
+      expect(testScanner['calculateScore']('warn')).toBe(0.5);
+      expect(testScanner['calculateScore']('fail')).toBe(0.0);
+      expect(testScanner['calculateScore']('not_applicable')).toBe(0.0);
     });
   });
 

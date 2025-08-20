@@ -15,7 +15,7 @@ export class AgentJsonScanner extends BaseScanner {
     if (!result.found) {
       return this.createResult({
         status: 'fail',
-        score: 0,
+        score: 0.0,
         message: 'No agent.json file found',
         details: {
           error: result.error,
@@ -35,7 +35,7 @@ export class AgentJsonScanner extends BaseScanner {
     } catch (error: any) {
       return this.createResult({
         status: 'fail',
-        score: 0,
+        score: 0.0,
         message: 'Invalid JSON in agent.json file',
         details: {
           error: error.message,
@@ -54,7 +54,7 @@ export class AgentJsonScanner extends BaseScanner {
     if (!validation.isValid) {
       return this.createResult({
         status: 'warn',
-        score: 5,
+        score: 0.5,
         message: 'agent.json file found but missing recommended fields',
         details: {
           missingFields: validation.missingFields,
@@ -70,7 +70,7 @@ export class AgentJsonScanner extends BaseScanner {
     
     return this.createResult({
       status: 'pass',
-      score: 10,
+      score: 1.0,
       message: 'Valid agent.json file found',
       details: {
         content: parsedJson,

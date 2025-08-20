@@ -3,6 +3,10 @@ import { RobotsScanner } from '../../../../../src/services/diagnostics/scanners/
 import { JsonLdScanner } from '../../../../../src/services/diagnostics/scanners/jsonLd.scanner';
 import { SeoBasicScanner } from '../../../../../src/services/diagnostics/scanners/seoBasic.scanner';
 import { ScannerContext } from '../../../../../src/services/diagnostics/scanners/base';
+import axios from 'axios';
+
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe('Enhanced Scanner Details', () => {
   describe('LlmsTxtScanner', () => {
@@ -19,11 +23,11 @@ describe('Enhanced Scanner Details', () => {
         pageUrl: 'https://example.com',
       };
 
-      // Mock fetch to return 404
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: false,
+      // Mock axios to return 404
+      mockedAxios.get.mockResolvedValue({
         status: 404,
-        text: async () => ''
+        data: '',
+        headers: {}
       });
 
       const result = await scanner.scan(context);
@@ -48,11 +52,11 @@ describe('Enhanced Scanner Details', () => {
 Allow: /api/
 Crawl-delay: 1`;
 
-      // Mock fetch to return valid content
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
+      // Mock axios to return valid content
+      mockedAxios.get.mockResolvedValue({
         status: 200,
-        text: async () => validContent
+        data: validContent,
+        headers: {}
       });
 
       const result = await scanner.scan(context);
@@ -61,7 +65,7 @@ Crawl-delay: 1`;
       expect(result.details).toBeDefined();
       expect(result.details!.contentFound).toBe(true);
       expect(result.details!.contentPreview).toBeDefined();
-      expect(result.details!.validationScore).toBe(10);
+      expect(result.details!.validationScore).toBe(1.0);
       expect(result.details!.aiReadinessFactors).toContain('Valid llms.txt file provides AI agent instructions');
       expect(result.details!.specificData).toBeDefined();
       expect(result.details!.specificData.hasUserAgent).toBeDefined();
@@ -90,11 +94,11 @@ Sitemap: https://example.com/sitemap.xml
 User-agent: GPTBot
 Allow: /api/`;
 
-      // Mock fetch to return robots.txt content
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
+      // Mock axios to return robots.txt content
+      mockedAxios.get.mockResolvedValue({
         status: 200,
-        text: async () => robotsContent
+        data: robotsContent,
+        headers: {}
       });
 
       const result = await scanner.scan(context);

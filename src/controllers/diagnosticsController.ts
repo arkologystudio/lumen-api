@@ -66,12 +66,28 @@ export class DiagnosticsController {
         return;
       }
       
-      res.status(200).json({
+      const responseData = {
         message: 'Anonymous diagnostic scan completed',
         status: result.status,
         duration: result.duration,
         result: result.result
-      });
+      };
+
+      // Log diagnostic data for debugging
+      console.log('\n=== ANONYMOUS DIAGNOSTIC RESPONSE ===');
+      console.log(`URL: ${url}`);
+      console.log(`Overall Score: ${result.result?.overall.score_0_100}/100 (${result.result?.overall.raw_0_1})`);
+      console.log(`Site Profile: ${result.result?.site.category}`);
+      console.log('\nCategory Scores:');
+      if (result.result?.categories) {
+        Object.entries(result.result.categories).forEach(([category, data]) => {
+          console.log(`  ${category}: ${Math.round((data as any).score * 100)}% (${data.indicators?.length || 0} indicators)`);
+        });
+      }
+      console.log(`Duration: ${result.duration}ms`);
+      console.log('=====================================\n');
+
+      res.status(200).json(responseData);
       
     } catch (error) {
       console.error('Error running anonymous diagnostic scan:', error);
@@ -171,26 +187,24 @@ export class DiagnosticsController {
         return;
       }
       
-      // Return simplified score data for free tier, full data for pro
+      // Return spec-compliant data with tier-based access
       const responseData = this.hasProAccess(req.user?.subscription_tier) 
         ? {
-            siteScore: result.siteScore,
-            aiReadiness: result.aiReadiness,
-            accessIntent: result.accessIntent,
-            summary: result.summary,
-            categoryScores: result.categoryScores,
-            auditId: result.auditId
+            // Full spec-compliant report for pro users
+            ...result,
+            auditId: siteId // Add audit context
           }
         : {
-            siteScore: { overall: result.siteScore.overall },
-            aiReadiness: result.aiReadiness,
-            accessIntent: result.accessIntent,
-            summary: {
-              totalIndicators: result.summary.totalIndicators,
-              passedIndicators: result.summary.passedIndicators,
-              failedIndicators: result.summary.failedIndicators
+            // Simplified data for free tier
+            site: result.site,
+            overall: result.overall,
+            categories: {
+              discovery: { score: result.categories.discovery.score },
+              understanding: { score: result.categories.understanding.score },
+              actions: { score: result.categories.actions.score },
+              trust: { score: result.categories.trust.score }
             },
-            auditId: result.auditId
+            auditId: siteId
           };
       
       res.status(200).json(responseData);

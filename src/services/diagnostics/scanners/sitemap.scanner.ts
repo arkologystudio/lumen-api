@@ -23,7 +23,7 @@ export class SitemapScanner extends BaseScanner {
     if (sitemapUrls.length === 0) {
       return this.createResult({
         status: 'fail',
-        score: 0,
+        score: 0.0,
         message: 'No XML sitemap found',
         details: {
           contentFound: false,
@@ -59,7 +59,7 @@ export class SitemapScanner extends BaseScanner {
     if (validSitemaps === 0) {
       return this.createResult({
         status: 'fail',
-        score: 2,
+        score: 0.2,
         message: 'Sitemap found but contains errors',
         details: {
           sitemapUrls,
@@ -75,7 +75,7 @@ export class SitemapScanner extends BaseScanner {
       v?.hasLastmod || v?.hasChangefreq || v?.hasPriority
     );
     
-    const score = hasOptionalElements ? 10 : 8;
+    const score = hasOptionalElements ? 1.0 : 0.8;
     const status = allIssues.length > 0 ? 'warn' : 'pass';
     
     return this.createResult({

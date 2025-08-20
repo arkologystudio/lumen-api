@@ -47,7 +47,7 @@ export class ScannerRegistry {
           indicatorName: scanner.name,
           category: scanner.category,
           status: 'fail' as const,
-          score: 0,
+          score: 0.0,
           message: `Scanner failed: ${error.message}`,
           details: { error: error.message }
         }))

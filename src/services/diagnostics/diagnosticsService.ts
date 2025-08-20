@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { CrawlerService, SiteCrawlOptions } from './crawler/crawlerService';
 import { ScannerRegistry, ScannerContext, initializeScanners } from './scanners';
-import { DiagnosticAggregator, AggregatedResult } from './aggregator';
+import { LighthouseAIReport, DiagnosticAggregator } from './aggregator';
+import { SiteProfile } from './profileDetector';
 // import { createClient } from '@supabase/supabase-js';
 
 export interface DiagnosticServiceConfig {
@@ -17,12 +18,13 @@ export interface RunDiagnosticOptions {
   maxPages?: number;
   storeRawData?: boolean;
   skipCache?: boolean;
+  declaredProfile?: SiteProfile; // Allow client to declare site profile
 }
 
 export interface DiagnosticResult {
   auditId: string;
   status: 'completed' | 'failed' | 'partial';
-  result?: AggregatedResult;
+  result?: LighthouseAIReport;
   error?: string;
   duration: number;
 }
@@ -82,7 +84,7 @@ export class DiagnosticsService {
           return {
             auditId: cachedResult.id,
             status: 'completed',
-            result: this.convertCachedToAggregated(cachedResult),
+            result: this.convertCachedToSpec(cachedResult),
             duration: Date.now() - startTime
           };
         }
@@ -152,16 +154,11 @@ export class DiagnosticsService {
       // Update status to scoring
       await this.updateAuditStatus(auditId, 'scoring');
       
-      // Aggregate results
-      const scanStarted = new Date(startTime);
-      const scanCompleted = new Date();
+      // Aggregate results using spec-compliant aggregator
       const aggregatedResult = this.aggregator.aggregate(
-        auditId, 
-        site.url, 
-        pageResults, 
-        options.auditType || 'full',
-        scanStarted,
-        scanCompleted
+        site.url,
+        pageResults,
+        options.declaredProfile
       );
       
       // Store results in database
@@ -169,9 +166,9 @@ export class DiagnosticsService {
       
       // Update status to completed
       await this.updateAuditStatus(auditId, 'completed', {
-        site_score: aggregatedResult.siteScore.overall,
-        ai_readiness: aggregatedResult.aiReadiness,
-        access_intent: aggregatedResult.accessIntent,
+        site_score: aggregatedResult.overall.score_0_100,
+        ai_readiness: this.determineAiReadinessFromSpec(aggregatedResult),
+        access_intent: this.determineAccessIntentFromSpec(aggregatedResult),
         completed_at: new Date()
       });
       
@@ -278,15 +275,10 @@ export class DiagnosticsService {
       console.log(`[Diagnostics] Scanning complete, aggregating results...`);
       
       // Aggregate results without database storage
-      const scanStarted = new Date(startTime);
-      const scanCompleted = new Date();
       const aggregatedResult = this.aggregator.aggregate(
-        tempAuditId, 
-        url, 
-        pageResults, 
-        options.auditType || 'quick',
-        scanStarted,
-        scanCompleted
+        url,
+        pageResults,
+        options.declaredProfile
       );
       
       console.log(`[Diagnostics] Anonymous scan completed in ${Date.now() - startTime}ms`);
@@ -315,7 +307,7 @@ export class DiagnosticsService {
   /**
    * Get the latest diagnostic result for a site
    */
-  async getLatestDiagnostic(userId: string, siteId: string): Promise<AggregatedResult | null> {
+  async getLatestDiagnostic(userId: string, siteId: string): Promise<LighthouseAIReport | null> {
     const audit = await this.prisma.diagnosticAudit.findFirst({
       where: {
         site_id: siteId,
@@ -334,7 +326,7 @@ export class DiagnosticsService {
     
     if (!audit) return null;
     
-    return this.convertCachedToAggregated(audit);
+    return this.convertCachedToSpec(audit);
   }
   
   private async updateAuditStatus(auditId: string, status: string, additionalData: any = {}): Promise<void> {
@@ -370,195 +362,98 @@ export class DiagnosticsService {
     });
   }
   
-  private async storeResults(auditId: string, result: AggregatedResult, crawlResult: any): Promise<void> {
-    // Store page-level data
-    for (const page of result.pages) {
-      const pageRecord = await this.prisma.diagnosticPage.create({
-        data: {
-          audit_id: auditId,
-          url: page.url,
-          page_score: page.pageScore,
-          // Add other page fields as needed
-        }
-      });
-      
-      // Store indicators for this page
-      for (const indicator of page.indicators) {
-        await this.prisma.diagnosticIndicator.create({
-          data: {
-            audit_id: auditId,
-            page_id: pageRecord.id,
-            indicator_name: indicator.name,
-            category: indicator.category,
-            status: indicator.status,
-            score: indicator.score,
-            weight: indicator.weight || 1,
-            message: indicator.message,
-            details: indicator.details ? JSON.stringify(indicator.details) : undefined,
-            recommendation: indicator.recommendation,
-            checked_url: indicator.checkedUrl,
-            found: indicator.found || false,
-            is_valid: indicator.isValid || false
-          }
-        });
-      }
-    }
-    
-    // Store site-level scores
+  
+  /**
+   * Store spec-compliant results in database
+   */
+  private async storeResults(auditId: string, result: LighthouseAIReport, crawlResult: any): Promise<void> {
+    // Store the spec-compliant overall score
     await this.prisma.diagnosticScore.create({
       data: {
         audit_id: auditId,
-        score_type: 'site',
-        score_value: result.siteScore.overall,
-        total_indicators: result.summary.totalIndicators,
-        passed_indicators: result.summary.passedIndicators,
-        warning_indicators: result.summary.warningIndicators,
-        failed_indicators: result.summary.failedIndicators,
-        calculation_details: JSON.stringify(result.siteScore)
+        score_type: 'spec_overall',
+        score_value: result.overall.score_0_100,
+        total_indicators: 0,
+        passed_indicators: 0,
+        warning_indicators: 0,
+        failed_indicators: 0
       }
     });
     
     // Store category scores
-    for (const categoryScore of result.categoryScores) {
+    for (const [categoryName, category] of Object.entries(result.categories)) {
+      const includedIndicators = category.indicators.filter(i => i.applicability.included_in_category_math);
       await this.prisma.diagnosticScore.create({
         data: {
           audit_id: auditId,
-          score_type: 'category',
-          category: categoryScore.category,
-          score_value: categoryScore.score,
-          total_indicators: categoryScore.indicatorCount,
-          passed_indicators: categoryScore.passedCount,
-          warning_indicators: categoryScore.warningCount,
-          failed_indicators: categoryScore.failedCount,
-          calculation_details: JSON.stringify(categoryScore)
+          score_type: 'spec_category',
+          category: categoryName,
+          score_value: category.score * 100, // Convert to 0-100 for consistency
+          total_indicators: includedIndicators.length,
+          passed_indicators: includedIndicators.filter(i => i.score === 1.0).length,
+          warning_indicators: includedIndicators.filter(i => i.score === 0.5).length,
+          failed_indicators: includedIndicators.filter(i => i.score === 0.0).length
         }
       });
     }
+    
+    // Note: Full spec result could be stored in a separate JSON column if added to schema
   }
   
-  private convertCachedToAggregated(audit: any): AggregatedResult {
-    // Convert database records back to AggregatedResult format
-    // This is a simplified version - in practice, you'd reconstruct the full object
+  /**
+   * Determine AI readiness from spec-compliant result
+   */
+  private determineAiReadinessFromSpec(result: LighthouseAIReport): 'excellent' | 'good' | 'needs_improvement' | 'poor' {
+    const score = result.overall.score_0_100;
+    if (score >= 90) return 'excellent';
+    if (score >= 70) return 'good';
+    if (score >= 50) return 'needs_improvement';
+    return 'poor';
+  }
+  
+  /**
+   * Determine access intent from spec-compliant result
+   */
+  private determineAccessIntentFromSpec(result: LighthouseAIReport): 'allow' | 'partial' | 'block' {
+    // Check robots.txt indicator in trust category
+    const robotsIndicator = result.categories.trust.indicators.find(i => i.name === 'robots_txt');
+    if (robotsIndicator?.evidence && typeof robotsIndicator.evidence === 'object') {
+      const evidence = robotsIndicator.evidence as any;
+      if (evidence.details?.specificData?.accessIntent) {
+        return evidence.details.specificData.accessIntent as 'allow' | 'partial' | 'block';
+      }
+    }
+    return 'allow'; // Default
+  }
+  
+  /**
+   * Convert cached result to spec-compliant format
+   */
+  private convertCachedToSpec(audit: any): LighthouseAIReport {
+    // This would need to be implemented based on cached data structure
+    // For now, return a basic structure
     return {
-      auditId: audit.id,
-      siteUrl: audit.site?.url || 'unknown',
-      auditType: audit.audit_type || 'full',
-      pages: audit.pages?.map((page: any) => ({
-        url: page.url,
-        title: page.title,
-        indicators: this.convertCachedIndicators(audit.indicators?.filter((i: any) => i.page_id === page.id) || []),
-        pageScore: page.page_score || 0,
-        categoryScores: this.convertCachedCategoryScores(audit.scores?.filter((s: any) => s.page_id === page.id) || []),
-        issues: [],
-        recommendations: [],
-        crawlMetadata: {
-          crawledAt: page.created_at || new Date(),
-          responseTime: 0,
-          statusCode: 200
-        }
-      })) || [],
-      siteScore: {
-        overall: audit.site_score || 0,
-        weighted: audit.site_score || 0,
-        breakdown: {
-          standards: 0,
-          seo: 0,
-          structured_data: 0,
-          accessibility: 0,
-          performance: 0,
-          security: 0
-        }
+      site: {
+        url: audit.site?.url || 'unknown',
+        scan_date: new Date().toISOString().split('T')[0],
+        category: 'custom'
       },
-      categoryScores: this.convertCachedCategoryScores(audit.scores?.filter((s: any) => s.score_type === 'category') || []),
-      summary: {
-        totalIndicators: audit.indicators?.length || 0,
-        passedIndicators: audit.indicators?.filter((i: any) => i.status === 'pass').length || 0,
-        warningIndicators: audit.indicators?.filter((i: any) => i.status === 'warn').length || 0,
-        failedIndicators: audit.indicators?.filter((i: any) => i.status === 'fail').length || 0,
-        criticalIssues: [],
-        topRecommendations: [],
-        completionPercentage: 0,
-        aiReadinessPercentage: 0,
-        quickWins: [],
-        strategicImprovements: [],
-        complianceLevel: 'poor',
-        complianceGaps: []
+      categories: {
+        discovery: { score: 0, indicators: [] },
+        understanding: { score: 0, indicators: [] },
+        actions: { score: 0, indicators: [] },
+        trust: { score: 0, indicators: [] }
       },
-      aiReadiness: audit.ai_readiness || 'poor',
-      aiReadinessDetails: {
-        score: audit.site_score || 0,
-        maxScore: 10,
-        factors: {
-          hasLlmsTxt: false,
-          hasAgentConfig: false,
-          hasStructuredData: false,
-          hasSeoOptimization: false,
-          hasAccessibleContent: false
-        },
-        missingElements: [],
-        strengthAreas: [],
-        improvementAreas: []
+      weights: {
+        discovery: 0.30,
+        understanding: 0.30,
+        actions: 0.25,
+        trust: 0.15
       },
-      accessIntent: audit.access_intent || 'allow',
-      accessIntentDetails: {
-        intent: audit.access_intent || 'allow',
-        sources: ['cached'],
-        restrictions: [],
-        allowedAgents: ['*'],
-        blockedAgents: []
-      },
-      scanMetadata: {
-        scanStarted: audit.created_at || new Date(),
-        scanCompleted: audit.completed_at || new Date(),
-        duration: 0,
-        pagesCrawled: audit.pages?.length || 0,
-        indicatorsChecked: audit.indicators?.length || 0,
-        version: '2.0',
-        limitations: ['Cached results', 'Limited historical data']
+      overall: {
+        raw_0_1: 0,
+        score_0_100: 0
       }
     };
-  }
-
-  private convertCachedIndicators(cachedIndicators: any[]): any[] {
-    return cachedIndicators.map((indicator: any) => ({
-      name: indicator.indicator_name,
-      displayName: indicator.indicator_name.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-      description: `${indicator.indicator_name} analysis`,
-      category: indicator.category,
-      status: indicator.status,
-      score: indicator.score || 0,
-      weight: indicator.weight || 1,
-      maxScore: 10,
-      message: indicator.message || '',
-      recommendation: indicator.recommendation,
-      checkedUrl: indicator.checked_url,
-      found: indicator.found || false,
-      isValid: indicator.is_valid || false,
-      details: indicator.details ? JSON.parse(indicator.details as string) : {},
-      scannedAt: indicator.scanned_at || new Date()
-    }));
-  }
-
-  private convertCachedCategoryScores(cachedScores: any[]): any[] {
-    return cachedScores.map((score: any) => ({
-      category: score.category,
-      displayName: score.category.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-      description: `${score.category} indicators`,
-      score: score.score_value || 0,
-      maxScore: 10,
-      weight: 1,
-      indicatorCount: score.total_indicators || 0,
-      passedCount: score.passed_indicators || 0,
-      warningCount: score.warning_indicators || 0,
-      failedCount: score.failed_indicators || 0,
-      topIssues: [],
-      topRecommendations: [],
-      categoryInsights: {
-        keyStrengths: [],
-        keyWeaknesses: [],
-        quickWins: [],
-        strategicImprovements: []
-      }
-    }));
   }
 }

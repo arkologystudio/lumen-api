@@ -93,13 +93,13 @@ export abstract class BaseScanner implements IScanner {
   protected calculateScore(status: IndicatorStatus): number {
     switch (status) {
       case 'pass':
-        return 10;
+        return 1.0;
       case 'warn':
-        return 5;
+        return 0.5;
       case 'fail':
-        return 0;
+        return 0.0;
       case 'not_applicable':
-        return 0;
+        return 0.0;
     }
   }
 }

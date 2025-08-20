@@ -22,7 +22,7 @@ export class LlmsTxtScanner extends BaseScanner {
     if (!result.found) {
           return this.createResult({
       status: 'fail',
-      score: 0,
+      score: 0.0,
       message: 'No llms.txt file found',
       details: {
         statusCode: result.statusCode,
@@ -55,14 +55,14 @@ export class LlmsTxtScanner extends BaseScanner {
     if (!validation.isValid) {
       return this.createResult({
         status: 'warn',
-        score: 5,
+        score: 0.5,
         message: 'llms.txt file found but has issues',
         details: {
           statusCode: 200,
           contentFound: true,
           contentPreview: result.content?.substring(0, 200) + (result.content && result.content.length > 200 ? '...' : ''),
           validationIssues: validation.issues,
-          validationScore: 5,
+          validationScore: 0.5,
           specificData: {
             parsedContent: validation.parsedContent,
             directiveCount: validation.directiveCount,
@@ -88,13 +88,13 @@ export class LlmsTxtScanner extends BaseScanner {
     
     return this.createResult({
       status: 'pass',
-      score: 10,
+      score: 1.0,
       message: 'Valid llms.txt file found',
       details: {
         statusCode: 200,
         contentFound: true,
         contentPreview: result.content?.substring(0, 200) + (result.content && result.content.length > 200 ? '...' : ''),
-        validationScore: 10,
+        validationScore: 1.0,
         specificData: {
           parsedContent: validation.parsedContent,
           directiveCount: validation.directiveCount,

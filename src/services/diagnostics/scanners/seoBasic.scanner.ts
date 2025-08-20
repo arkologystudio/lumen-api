@@ -45,7 +45,7 @@ export class SeoBasicScanner extends BaseScanner {
     
     const analysis = this.analyzeSeo(context.pageHtml);
     const score = this.calculateSeoScore(analysis);
-    const status = score >= 8 ? 'pass' : score >= 5 ? 'warn' : 'fail';
+    const status = score >= 0.8 ? 'pass' : score >= 0.5 ? 'warn' : 'fail';
     
     return this.createResult({
       status,
@@ -188,38 +188,32 @@ export class SeoBasicScanner extends BaseScanner {
   }
   
   private calculateSeoScore(analysis: SeoAnalysis): number {
-    let score = 0;
-    let maxScore = 0;
+    let score = 0.0;
     
-    // Title (3 points)
-    maxScore += 3;
+    // Title (30%)
     if (analysis.title.exists) {
-      score += analysis.title.optimal ? 3 : 1.5;
+      score += analysis.title.optimal ? 0.3 : 0.15;
     }
     
-    // Meta description (3 points)
-    maxScore += 3;
+    // Meta description (30%)
     if (analysis.metaDescription.exists) {
-      score += analysis.metaDescription.optimal ? 3 : 1.5;
+      score += analysis.metaDescription.optimal ? 0.3 : 0.15;
     }
     
-    // Headings (2 points)
-    maxScore += 2;
+    // Headings (25%)
     if (analysis.headings.hasH1 && analysis.headings.h1Count === 1) {
-      score += 2;
+      score += 0.25;
     } else if (analysis.headings.hasH1) {
-      score += 1;
+      score += 0.1;
     }
     
-    // Open Graph (2 points)
-    maxScore += 2;
     if (analysis.openGraph.hasBasicOg) {
-      score += 2;
+      score += 0.15;
     } else if (analysis.openGraph.missingTags.length <= 2) {
-      score += 1;
+      score += 0.05;
     }
     
-    return Math.round((score / maxScore) * 10);
+    return Math.max(0.0, Math.min(1.0, score));
   }
   
   private generateMessage(analysis: SeoAnalysis): string {

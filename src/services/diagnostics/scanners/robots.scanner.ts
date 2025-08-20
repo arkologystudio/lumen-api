@@ -40,7 +40,7 @@ export class RobotsScanner extends BaseScanner {
     
     return this.createResult({
       status,
-      score: 0, // Always 0 to exclude from scoring
+      score: 0.0, // Always 0 to exclude from scoring
       message: `Access intent: ${accessIntent} - ${messages.join('; ')}`,
       details: {
         statusCode: robotsTxtResult.statusCode,
@@ -96,18 +96,18 @@ export class RobotsScanner extends BaseScanner {
       analysis.hasAiDirectives = true;
     }
     
-    // Calculate score
+    // Calculate score (using 0-1 range)
     if (!analysis.hasContent) {
-      analysis.score = 0;
+      analysis.score = 0.0;
       analysis.message = 'Empty robots.txt file';
     } else if (analysis.hasAiDirectives) {
-      analysis.score = 10;
+      analysis.score = 1.0;
       analysis.message = 'robots.txt contains AI-specific directives';
     } else if (analysis.hasSitemaps) {
-      analysis.score = 7;
+      analysis.score = 0.7;
       analysis.message = 'robots.txt found with sitemaps but no AI directives';
     } else {
-      analysis.score = 5;
+      analysis.score = 0.5;
       analysis.message = 'Basic robots.txt found without AI considerations';
     }
     
@@ -133,15 +133,15 @@ export class RobotsScanner extends BaseScanner {
       analysis.hasAiDirectives = true;
     }
     
-    // Calculate score
+    // Calculate score (using 0-1 range)
     if (analysis.hasAiDirectives) {
-      analysis.score = 10;
+      analysis.score = 1.0;
       analysis.message = 'Page contains AI-specific robots meta tags';
     } else if (analysis.hasRobotsMeta) {
-      analysis.score = 5;
+      analysis.score = 0.5;
       analysis.message = 'Page has robots meta tags but no AI directives';
     } else {
-      analysis.score = 7;
+      analysis.score = 0.7;
       analysis.message = 'No restrictive robots meta tags found';
     }
     

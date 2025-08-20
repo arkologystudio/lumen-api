@@ -25,7 +25,7 @@ export class CanonicalScanner extends BaseScanner {
     if (!canonicalUrl) {
       return this.createResult({
         status: 'warn',
-        score: 3,
+        score: 0.3,
         message: 'No canonical URL specified',
         details: {
           pageUrl: context.pageUrl
@@ -40,7 +40,7 @@ export class CanonicalScanner extends BaseScanner {
     if (!validation.isValid) {
       return this.createResult({
         status: 'fail',
-        score: 0,
+        score: 0.0,
         message: 'Invalid canonical URL implementation',
         details: {
           canonicalUrl,
@@ -58,7 +58,7 @@ export class CanonicalScanner extends BaseScanner {
     if (!consistency.isConsistent) {
       return this.createResult({
         status: 'warn',
-        score: 7,
+        score: 0.7,
         message: 'Canonical URL inconsistency detected',
         details: {
           canonicalUrl,
@@ -71,7 +71,7 @@ export class CanonicalScanner extends BaseScanner {
     
     return this.createResult({
       status: 'pass',
-      score: 10,
+      score: 1.0,
       message: 'Proper canonical URL implementation',
       details: {
         canonicalUrl,

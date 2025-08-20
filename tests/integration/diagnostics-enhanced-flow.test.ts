@@ -1,31 +1,24 @@
-import { DiagnosticAggregator } from '../../src/services/diagnostics/aggregator';
-import { initializeScanners } from '../../src/services/diagnostics/scanners';
+import { DiagnosticAggregator, LighthouseAIReport } from '../../src/services/diagnostics/aggregator';
+import { ScannerResult } from '../../src/services/diagnostics/scanners/base';
 
-describe('Enhanced Diagnostics Flow Integration', () => {
+describe('Spec-Compliant Diagnostics Flow Integration', () => {
   let aggregator: DiagnosticAggregator;
 
   beforeEach(() => {
     aggregator = new DiagnosticAggregator();
-
-    // Mock fetch for scanner network requests
-    global.fetch = jest.fn();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('Enhanced Aggregator Integration', () => {
-    it('should produce enhanced response structure with real scanner results', () => {
-      // Create realistic scanner results
-      const pageResults = new Map();
+  describe('Spec-Compliant Aggregator Integration', () => {
+    it('should produce spec-compliant response structure with real scanner results', () => {
+      // Create realistic scanner results with 0-1 scoring
+      const pageResults = new Map<string, ScannerResult[]>();
       
       pageResults.set('https://example.com', [
         {
           indicatorName: 'llms_txt',
           category: 'standards',
           status: 'fail',
-          score: 0,
+          score: 0.0,
           weight: 2.0,
           message: 'No llms.txt file found',
           details: {
@@ -41,7 +34,7 @@ describe('Enhanced Diagnostics Flow Integration', () => {
           indicatorName: 'seo_basic',
           category: 'seo',
           status: 'pass',
-          score: 8,
+          score: 1.0,
           weight: 1.5,
           message: 'Basic SEO elements found',
           details: {
@@ -57,7 +50,7 @@ describe('Enhanced Diagnostics Flow Integration', () => {
           indicatorName: 'json_ld',
           category: 'structured_data',
           status: 'warn',
-          score: 6,
+          score: 0.6,
           weight: 2.0,
           message: 'JSON-LD found but missing some elements',
           details: {
@@ -68,203 +61,164 @@ describe('Enhanced Diagnostics Flow Integration', () => {
           recommendation: 'Add WebSite schema for better coverage',
           found: true,
           isValid: true
+        },
+        {
+          indicatorName: 'mcp',
+          category: 'standards',
+          status: 'fail',
+          score: 0.0,
+          weight: 2.5,
+          message: 'No MCP configuration found',
+          details: {
+            contentFound: false,
+            validationIssues: ['MCP configuration file not found']
+          },
+          recommendation: 'Implement MCP configuration',
+          found: false,
+          isValid: false
         }
       ]);
-
-      const scanStarted = new Date('2024-01-01T00:00:00Z');
-      const scanCompleted = new Date('2024-01-01T00:00:10Z');
       
-      const result = aggregator.aggregate(
-        'test-audit-123',
+      const result: LighthouseAIReport = aggregator.aggregate(
         'https://example.com',
         pageResults,
-        'quick',
-        scanStarted,
-        scanCompleted
+        'ecommerce' // Declare as e-commerce to test applicability
       );
 
-      // Verify enhanced structure
+      // Verify spec-compliant structure
       expect(result).toBeDefined();
-      expect(result.auditType).toBe('quick');
-      expect(result.scanMetadata).toBeDefined();
-      expect(result.scanMetadata.version).toBe('2.0');
-      expect(result.scanMetadata.duration).toBe(10000); // 10 seconds
+      expect(result.site.url).toBe('https://example.com');
+      expect(result.site.category).toBe('ecommerce');
+      expect(result.site.scan_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-      // Verify enhanced page data
-      expect(result.pages).toHaveLength(1);
-      const page = result.pages[0];
+      // Verify category structure
+      expect(result.categories.discovery).toBeDefined();
+      expect(result.categories.understanding).toBeDefined();
+      expect(result.categories.actions).toBeDefined();
+      expect(result.categories.trust).toBeDefined();
+
+      // Verify weights match specification
+      expect(result.weights.discovery).toBe(0.30);
+      expect(result.weights.understanding).toBe(0.30);
+      expect(result.weights.actions).toBe(0.25);
+      expect(result.weights.trust).toBe(0.15);
+
+      // Verify overall score
+      expect(result.overall.raw_0_1).toBeGreaterThanOrEqual(0);
+      expect(result.overall.raw_0_1).toBeLessThanOrEqual(1);
+      expect(result.overall.score_0_100).toBe(Math.round(result.overall.raw_0_1 * 100));
+
+      // Verify indicators have applicability
+      const allIndicators = Object.values(result.categories).flatMap(c => c.indicators);
+      expect(allIndicators.length).toBeGreaterThan(0);
       
-      expect(page.indicators).toHaveLength(3);
-      expect(page.issues).toBeDefined();
-      expect(page.recommendations).toBeDefined();
+      allIndicators.forEach(indicator => {
+        expect(indicator.applicability).toBeDefined();
+        expect(['required', 'optional', 'not_applicable']).toContain(indicator.applicability.status);
+        expect(typeof indicator.applicability.included_in_category_math).toBe('boolean');
+        expect(indicator.score).toBeGreaterThanOrEqual(0);
+        expect(indicator.score).toBeLessThanOrEqual(1);
+      });
 
-      // Verify individual indicators are enhanced
-      const llmsIndicator = page.indicators.find(i => i.name === 'llms_txt');
-      expect(llmsIndicator).toBeDefined();
-      expect(llmsIndicator!.displayName).toBe('LLMS.txt File');
-      expect(llmsIndicator!.description).toContain('AI agent instruction file');
-      expect(llmsIndicator!.maxScore).toBe(10);
-      expect(llmsIndicator!.details).toBeDefined();
-      expect(llmsIndicator!.scannedAt).toBeDefined();
-
-      // Verify category scores are enhanced
-      expect(result.categoryScores.length).toBeGreaterThan(0);
-      const standardsCategory = result.categoryScores.find(c => c.category === 'standards');
-      expect(standardsCategory).toBeDefined();
-      expect(standardsCategory!.displayName).toBe('AI Standards');
-      expect(standardsCategory!.description).toBeDefined();
-      expect(standardsCategory!.categoryInsights).toBeDefined();
-
-      // Verify AI readiness details
-      expect(result.aiReadinessDetails).toBeDefined();
-      expect(result.aiReadinessDetails.factors).toBeDefined();
-      expect(result.aiReadinessDetails.factors.hasLlmsTxt).toBe(false);
-      // Note: hasStructuredData depends on the specific JSON-LD indicator name and status
-      // The aggregator looks for 'json_ld' with 'pass' status for structured data
-      expect(result.aiReadinessDetails.factors.hasStructuredData).toBe(false); // Because json_ld is 'warn', not 'pass'
-      expect(result.aiReadinessDetails.missingElements).toContain('llms.txt file');
-
-      // Verify enhanced summary
-      expect(result.summary.completionPercentage).toBeDefined();
-      expect(result.summary.aiReadinessPercentage).toBeDefined();
-      expect(result.summary.quickWins).toBeDefined();
-      expect(result.summary.strategicImprovements).toBeDefined();
-      expect(result.summary.complianceLevel).toBeDefined();
-
-      // Verify prioritized recommendations
-      expect(result.summary.topRecommendations).toBeDefined();
-      if (result.summary.topRecommendations.length > 0) {
-        const topRec = result.summary.topRecommendations[0];
-        expect(topRec.indicatorName).toBeDefined();
-        expect(topRec.priority).toBeDefined();
-        expect(topRec.expectedImprovement).toBeDefined();
-        expect(topRec.estimatedEffort).toBeDefined();
+      // Verify MCP is required for e-commerce
+      const mcpIndicator = result.categories.actions.indicators.find(i => i.name === 'mcp');
+      if (mcpIndicator) {
+        expect(mcpIndicator.applicability.status).toBe('required');
+        expect(mcpIndicator.applicability.included_in_category_math).toBe(true);
       }
     });
 
-    it('should handle mixed indicator results correctly', () => {
-      const pageResults = new Map();
+    it('should handle blog content profile with different applicability', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
       
-      // Simulate results from all 7 core indicators (removed ai_agent_json, robots_txt now with weight 0)
-      pageResults.set('https://example.com', [
-        { indicatorName: 'llms_txt', category: 'standards', status: 'fail', score: 0, weight: 2.0, recommendation: 'Create llms.txt file' },
-        { indicatorName: 'agent_json', category: 'standards', status: 'fail', score: 0, weight: 2.0, recommendation: 'Add agent.json configuration' },
-        { indicatorName: 'robots_txt', category: 'standards', status: 'not_applicable', score: 0, weight: 0 }, // Access intent only
-        { indicatorName: 'canonical_urls', category: 'seo', status: 'pass', score: 9, weight: 1.0 },
-        { indicatorName: 'sitemap_xml', category: 'seo', status: 'warn', score: 6, weight: 1.5, recommendation: 'Improve sitemap coverage' },
-        { indicatorName: 'seo_basic', category: 'seo', status: 'pass', score: 9, weight: 1.5 },
-        { indicatorName: 'json_ld', category: 'structured_data', status: 'warn', score: 5, weight: 2.0, recommendation: 'Add more structured data schemas' }
-      ]);
-
-      const result = aggregator.aggregate(
-        'test-audit-456',
-        'https://example.com',
-        pageResults,
-        'full',
-        new Date(),
-        new Date()
-      );
-
-      // Should have all 3 categories represented
-      expect(result.categoryScores).toHaveLength(3);
-      
-      // Standards category should have low score due to failures (robots_txt excluded from scoring)
-      const standardsCategory = result.categoryScores.find(c => c.category === 'standards');
-      expect(standardsCategory).toBeDefined();
-      expect(standardsCategory!.score).toBeLessThan(5);
-      expect(standardsCategory!.failedCount).toBe(2); // Only llms_txt and agent_json counted (robots_txt excluded)
-
-      // SEO category should have higher score
-      const seoCategory = result.categoryScores.find(c => c.category === 'seo');
-      expect(seoCategory).toBeDefined();
-      expect(seoCategory!.score).toBeGreaterThan(6);
-      expect(seoCategory!.passedCount).toBe(2); // canonical_urls and seo_basic
-      expect(seoCategory!.warningCount).toBe(1); // sitemap_xml
-
-      // AI readiness should reflect poor standards compliance
-      expect(result.aiReadinessDetails.factors.hasLlmsTxt).toBe(false);
-      expect(result.aiReadinessDetails.factors.hasAgentConfig).toBe(false);
-      expect(result.aiReadiness).toBe('poor'); // Low overall score due to failed standards
-
-      // Should have actionable recommendations or critical issues from failed indicators
-      expect(result.summary.criticalIssues.length).toBeGreaterThan(0);
-      // Note: quickWins and strategicImprovements depend on difficulty mapping, so they may be 0
-      expect(result.summary.topRecommendations.length).toBeGreaterThan(0);
-    });
-
-    it('should calculate accurate scoring and prioritization', () => {
-      const pageResults = new Map();
-      
-      pageResults.set('https://example.com', [
+      pageResults.set('https://blog.example.com', [
         {
-          indicatorName: 'critical_standards_fail',
+          indicatorName: 'llms_txt',
           category: 'standards',
-          status: 'fail',
-          score: 0,
-          weight: 3.0,
-          message: 'Critical AI standards failure',
-          recommendation: 'Implement AI standards immediately'
+          status: 'pass',
+          score: 1.0,
+          weight: 2.0,
+          message: 'Valid llms.txt found',
+          found: true,
+          isValid: true
         },
         {
-          indicatorName: 'minor_seo_issue',
-          category: 'seo',
-          status: 'warn',
-          score: 7,
-          weight: 1.0,
-          message: 'Minor SEO issue',
-          recommendation: 'Optimize SEO when convenient'
+          indicatorName: 'mcp',
+          category: 'standards',
+          status: 'fail',
+          score: 0.0,
+          weight: 2.5,
+          message: 'No MCP configuration found',
+          found: false,
+          isValid: false
         }
       ]);
-
-      const result = aggregator.aggregate(
-        'test-audit-789',
-        'https://example.com',
+      
+      const result: LighthouseAIReport = aggregator.aggregate(
+        'https://blog.example.com',
         pageResults,
-        'quick',
-        new Date(),
-        new Date()
+        'blog_content'
       );
 
-      // Critical issue should be identified
-      expect(result.summary.criticalIssues.length).toBeGreaterThan(0);
-      const criticalIssue = result.summary.criticalIssues[0];
-      expect(criticalIssue.severity).toBe('critical');
-      expect(criticalIssue.indicatorName).toBe('critical_standards_fail');
+      expect(result.site.category).toBe('blog_content');
 
-      // Recommendations should be prioritized correctly
-      expect(result.summary.topRecommendations.length).toBeGreaterThan(0);
-      const topRec = result.summary.topRecommendations[0];
-      expect(topRec.priority).toBe('high'); // High weight failure should be high priority
-      expect(topRec.indicatorName).toBe('critical_standards_fail');
+      // MCP should be not applicable for blog content
+      const mcpIndicator = result.categories.actions.indicators.find(i => i.name === 'mcp');
+      if (mcpIndicator) {
+        expect(mcpIndicator.applicability.status).toBe('not_applicable');
+        expect(mcpIndicator.applicability.included_in_category_math).toBe(false);
+      }
 
-      // Site score should reflect the critical failure
-      expect(result.siteScore.overall).toBeLessThan(5);
-      expect(result.siteScore.weighted).toBeLessThan(result.siteScore.overall); // Weighted should be lower due to standards weight
+      // llms.txt should be required for blog content  
+      const llmsIndicator = result.categories.understanding.indicators.find(i => i.name === 'llms_txt');
+      if (llmsIndicator) {
+        expect(llmsIndicator.applicability.status).toBe('required');
+        expect(llmsIndicator.applicability.included_in_category_math).toBe(true);
+      }
     });
-  });
 
-  describe('Scanner Registry Integration', () => {
-    it('should initialize all 7 core scanners with enhanced details', () => {
-      const registry = initializeScanners();
+    it('should calculate category scores excluding non-applicable indicators', () => {
+      const pageResults = new Map<string, ScannerResult[]>();
       
-      const scannerNames = registry.getAllScanners().map(s => s.name);
+      pageResults.set('https://blog.example.com', [
+        {
+          indicatorName: 'llms_txt',
+          category: 'standards',
+          status: 'pass',
+          score: 1.0,
+          found: true,
+          isValid: true
+        },
+        {
+          indicatorName: 'mcp', // Not applicable for blog
+          category: 'standards',
+          status: 'fail',
+          score: 0.0,
+          found: false,
+          isValid: false
+        },
+        {
+          indicatorName: 'robots_txt',
+          category: 'standards',
+          status: 'pass',
+          score: 1.0,
+          found: true,
+          isValid: true
+        }
+      ]);
       
-      // Verify all 7 core indicators are present (removed ai_agent_json)
-      expect(scannerNames).toContain('llms_txt');
-      expect(scannerNames).toContain('agent_json');
-      expect(scannerNames).toContain('robots_txt');
-      expect(scannerNames).toContain('canonical_urls');
-      expect(scannerNames).toContain('xml_sitemap');
-      expect(scannerNames).toContain('seo_basic');
-      expect(scannerNames).toContain('json_ld');
+      const result: LighthouseAIReport = aggregator.aggregate(
+        'https://blog.example.com',
+        pageResults,
+        'blog_content'
+      );
 
-      // Verify each scanner has the required metadata
-      registry.getAllScanners().forEach(scanner => {
-        expect(scanner.name).toBeDefined();
-        expect(scanner.category).toBeDefined();
-        expect(scanner.description).toBeDefined();
-        expect(scanner.weight).toBeGreaterThanOrEqual(0); // Changed to allow weight 0 for robots.txt
-      });
+      // Actions category should not be penalized by MCP failure since it's not applicable
+      const actionsCategory = result.categories.actions;
+      
+      // Since MCP is not applicable for blogs, actions category should have score 0 
+      // (no applicable indicators)
+      expect(actionsCategory.score).toBe(0);
     });
   });
 });

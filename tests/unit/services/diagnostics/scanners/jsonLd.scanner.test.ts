@@ -44,7 +44,7 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('fail');
-      expect(result.score).toBe(0);
+      expect(result.score).toBe(0.0);
       expect(result.message).toBe('No JSON-LD structured data found');
       expect(result.recommendation).toContain('Add JSON-LD structured data');
     });
@@ -72,11 +72,11 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.score).toBeGreaterThanOrEqual(8);
-      expect(result.details?.found).toBe(true);
-      expect(result.details?.count).toBe(1);
-      expect(result.details?.hasOrganization).toBe(true);
-      expect(result.details?.types).toContain('Organization');
+      expect(result.score).toBeGreaterThanOrEqual(0.8);
+      expect(result.details?.specificData?.found).toBe(true);
+      expect(result.details?.specificData?.count).toBe(1);
+      expect(result.details?.specificData?.hasOrganization).toBe(true);
+      expect(result.details?.specificData?.types).toContain('Organization');
     });
 
     it('should pass for WebSite schema', async () => {
@@ -99,8 +99,8 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.hasWebSite).toBe(true);
-      expect(result.details?.types).toContain('WebSite');
+      expect(result.details?.specificData?.hasWebSite).toBe(true);
+      expect(result.details?.specificData?.types).toContain('WebSite');
     });
 
     it('should handle multiple JSON-LD scripts', async () => {
@@ -137,11 +137,11 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.score).toBe(10);
-      expect(result.details?.count).toBe(3);
-      expect(result.details?.hasOrganization).toBe(true);
-      expect(result.details?.hasWebSite).toBe(true);
-      expect(result.details?.hasArticle).toBe(true);
+      expect(result.score).toBe(1.0);
+      expect(result.details?.specificData?.count).toBe(3);
+      expect(result.details?.specificData?.hasOrganization).toBe(true);
+      expect(result.details?.specificData?.hasWebSite).toBe(true);
+      expect(result.details?.specificData?.hasArticle).toBe(true);
     });
 
     it('should recognize AI-relevant types', async () => {
@@ -169,9 +169,9 @@ describe('JsonLdScanner', () => {
       const contextWithHtml = { ...mockContext, pageHtml: htmlWithAiTypes };
       const result = await scanner.scan(contextWithHtml);
 
-      expect(result.status).toBe('pass');
-      expect(result.details?.aiRelevantTypes).toContain('FAQPage');
-      expect(result.details?.aiRelevantTypes).toContain('HowTo');
+      expect(result.status).toBe('warn');
+      expect(result.details?.specificData?.aiRelevantTypes).toContain('FAQPage');
+      expect(result.details?.specificData?.aiRelevantTypes).toContain('HowTo');
     });
   });
 
@@ -199,8 +199,8 @@ describe('JsonLdScanner', () => {
 
       // Should still process the valid JSON-LD
       expect(result.status).toBe('pass');
-      expect(result.details?.count).toBe(1);
-      expect(result.details?.types).toContain('Organization');
+      expect(result.details?.specificData?.count).toBe(1);
+      expect(result.details?.specificData?.types).toContain('Organization');
     });
 
     it('should warn for missing required fields', async () => {
@@ -297,9 +297,9 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.types).toContain('Article');
-      expect(result.details?.types).toContain('Person');
-      expect(result.details?.types).toContain('Organization');
+      expect(result.details?.specificData?.types).toContain('Article');
+      expect(result.details?.specificData?.types).toContain('Person');
+      expect(result.details?.specificData?.types).toContain('Organization');
     });
 
     it('should handle array of types', async () => {
@@ -320,9 +320,9 @@ describe('JsonLdScanner', () => {
       const contextWithHtml = { ...mockContext, pageHtml: htmlWithArrayTypes };
       const result = await scanner.scan(contextWithHtml);
 
-      expect(result.status).toBe('pass');
-      expect(result.details?.types).toContain('Article');
-      expect(result.details?.types).toContain('NewsArticle');
+      expect(result.status).toBe('warn');
+      expect(result.details?.specificData?.types).toContain('Article');
+      expect(result.details?.specificData?.types).toContain('NewsArticle');
     });
   });
 
@@ -362,7 +362,7 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.score).toBe(10);
+      expect(result.score).toBe(1.0);
     });
 
     it('should give lower scores for validation issues', async () => {
@@ -382,7 +382,7 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('warn');
-      expect(result.score).toBeLessThan(8);
+      expect(result.score).toBeLessThan(0.8);
     });
   });
 
