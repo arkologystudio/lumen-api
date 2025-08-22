@@ -41,6 +41,8 @@ model User {
   licenses       License[]
   downloads      Download[]
   query_usage    QueryUsage[]
+  diagnostic_audits DiagnosticAudit[]
+  diagnostic_schedules DiagnosticSchedule[]
 
   // Indexes
   @@index([stripe_customer_id])
@@ -70,6 +72,8 @@ model Site {
   query_usage   QueryUsage[]
   post_chunks   PostChunk[]
   product_embeddings ProductEmbedding[]
+  diagnostic_audits DiagnosticAudit[]
+  diagnostic_schedules DiagnosticSchedule[]
 
   // Indexes
   @@index([user_id])
@@ -619,4 +623,235 @@ model Download {
   @@index([started_at])
   @@index([download_token])
   @@map("downloads")
+}
+
+// ===== DIAGNOSTICS ENGINE MODELS =====
+
+// Diagnostic Audits - Main audit records
+model DiagnosticAudit {
+  id         String   @id @default(uuid())
+  site_id    String
+  user_id    String
+  
+  // Audit details
+  audit_type   String    @default("full") // 'full', 'quick', 'scheduled', 'on_demand'
+  status       String    @default("pending") // 'pending', 'crawling', 'scanning', 'scoring', 'completed', 'failed'
+  started_at   DateTime  @default(now())
+  completed_at DateTime?
+  
+  // Error tracking
+  error_message String?
+  error_details Json?
+  
+  // Raw data storage references
+  raw_html_path       String? // Path in Supabase Storage for raw HTML
+  screenshots_path    String? // Path in Supabase Storage for screenshots
+  
+  // Summary scores
+  site_score       Float? // Overall site score (0-10)
+  ai_readiness     String? // 'excellent', 'good', 'needs_improvement', 'poor'
+  access_intent    String? // 'allow', 'partial', 'block'
+  
+  // Metadata
+  crawler_metadata Json? // User agent, viewport, etc.
+  audit_metadata   Json? // Additional audit configuration
+  
+  // Cache control
+  cache_expires_at DateTime? // When cached results expire
+  is_cached        Boolean   @default(false)
+  
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // Relationships
+  site       Site               @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  pages      DiagnosticPage[]
+  indicators DiagnosticIndicator[]
+  scores     DiagnosticScore[]
+  
+  // Indexes
+  @@index([site_id, created_at])
+  @@index([user_id])
+  @@index([status])
+  @@index([audit_type])
+  @@index([completed_at])
+  @@map("diagnostic_audits")
+}
+
+// Diagnostic Pages - Page-level audit data
+model DiagnosticPage {
+  id       String @id @default(uuid())
+  audit_id String
+  
+  // Page information
+  url            String
+  title          String?
+  meta_description String?
+  page_type      String? // 'homepage', 'product', 'blog', 'landing', etc.
+  
+  // Page metrics
+  page_score     Float? // Page-level score (0-10)
+  load_time_ms   Int? // Page load time
+  word_count     Int?
+  
+  // SEO/Meta indicators
+  has_title      Boolean @default(false)
+  has_meta_desc  Boolean @default(false)
+  has_og_tags    Boolean @default(false)
+  has_schema     Boolean @default(false)
+  
+  // Raw data references
+  html_snapshot_path String? // Path in storage
+  screenshot_path    String? // Path in storage
+  
+  // Crawl metadata
+  crawled_at    DateTime?
+  status_code   Int?
+  error_message String?
+  
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // Relationships
+  audit      DiagnosticAudit      @relation(fields: [audit_id], references: [id], onDelete: Cascade)
+  indicators DiagnosticIndicator[]
+  scores     DiagnosticScore[]
+  
+  // Indexes
+  @@index([audit_id])
+  @@index([url])
+  @@index([page_type])
+  @@map("diagnostic_pages")
+}
+
+// Diagnostic Indicators - Individual check results
+model DiagnosticIndicator {
+  id       String  @id @default(uuid())
+  audit_id String
+  page_id  String?
+  
+  // Indicator details
+  indicator_name String // 'llms_txt', 'agent_json', 'robots_txt', etc.
+  category       String // 'standards', 'seo', 'structured_data', 'accessibility'
+  
+  // Result
+  status         String // 'pass', 'warn', 'fail', 'not_applicable'
+  score          Float? // Individual score (0-10)
+  weight         Float  @default(1.0) // Weight in overall scoring
+  
+  // Details
+  message        String? // Human-readable result message
+  details        Json? // Detailed findings
+  recommendation String? // Fix recommendation
+  
+  // File/URL specific
+  checked_url    String? // URL that was checked (for file indicators)
+  found          Boolean @default(false)
+  is_valid       Boolean @default(false)
+  
+  // LLM analysis (for advanced indicators)
+  llm_analysis   Json? // Structured LLM response
+  llm_score      Float? // LLM-assigned score
+  llm_confidence Float? // Confidence level (0-1)
+  
+  // Timestamps
+  scanned_at DateTime @default(now())
+  
+  // Relationships
+  audit DiagnosticAudit @relation(fields: [audit_id], references: [id], onDelete: Cascade)
+  page  DiagnosticPage? @relation(fields: [page_id], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([audit_id])
+  @@index([page_id])
+  @@index([indicator_name])
+  @@index([category])
+  @@index([status])
+  @@map("diagnostic_indicators")
+}
+
+// Diagnostic Scores - Computed scores at different levels
+model DiagnosticScore {
+  id       String @id @default(uuid())
+  audit_id String
+  page_id  String?
+  
+  // Score details
+  score_type  String // 'site', 'page', 'category'
+  category    String? // If score_type is 'category'
+  score_value Float // The actual score (0-10)
+  
+  // Score components
+  total_indicators   Int // Total indicators checked
+  passed_indicators  Int // Indicators that passed
+  warning_indicators Int // Indicators with warnings
+  failed_indicators  Int // Indicators that failed
+  
+  // Weighted calculation details
+  weighted_score Float? // If using weighted scoring
+  max_possible   Float? // Maximum possible score
+  
+  // Metadata
+  calculation_details Json? // Detailed breakdown of score calculation
+  
+  // Timestamps
+  calculated_at DateTime @default(now())
+  
+  // Relationships
+  audit DiagnosticAudit @relation(fields: [audit_id], references: [id], onDelete: Cascade)
+  page  DiagnosticPage? @relation(fields: [page_id], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([audit_id])
+  @@index([page_id])
+  @@index([score_type])
+  @@index([category])
+  @@map("diagnostic_scores")
+}
+
+// Diagnostic Schedules - Scheduled audit configuration
+model DiagnosticSchedule {
+  id      String @id @default(uuid())
+  user_id String
+  site_id String
+  
+  // Schedule configuration
+  schedule_type String // 'daily', 'weekly', 'monthly'
+  schedule_day  Int? // Day of week (1-7) or day of month (1-31)
+  schedule_hour Int    @default(2) // Hour of day (0-23) in UTC
+  
+  // Schedule status
+  is_active     Boolean   @default(true)
+  last_run_at   DateTime?
+  next_run_at   DateTime?
+  
+  // Notification settings
+  notify_on_completion Boolean @default(true)
+  notify_on_failure    Boolean @default(true)
+  notify_on_score_drop Boolean @default(true)
+  score_drop_threshold Float   @default(0.1) // 10% drop triggers notification
+  
+  // Audit configuration
+  audit_config Json? // Custom audit settings for scheduled runs
+  
+  // Timestamps
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  
+  // Relationships
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [site_id], references: [id], onDelete: Cascade)
+  
+  // Constraints
+  @@unique([site_id]) // One schedule per site
+  
+  // Indexes
+  @@index([user_id])
+  @@index([site_id])
+  @@index([is_active])
+  @@index([next_run_at])
+  @@map("diagnostic_schedules")
 }

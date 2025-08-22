@@ -19,6 +19,10 @@ The service is built with modern, cloud-native technologies:
 - Multi-site support with data isolation
 - Real-time search with relevance scoring
 
+### Diagnostics Engine
+- Audits any website to determine AI-readyness score
+- Scheduled crawls and diagnostics
+
 ### 🏪 Plugin Marketplace
 - Ecosystem product management
 - Plugin file storage and distribution
