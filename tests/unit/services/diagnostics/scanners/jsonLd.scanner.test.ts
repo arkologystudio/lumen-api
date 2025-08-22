@@ -1,5 +1,14 @@
 import { JsonLdScanner } from '../../../../../src/services/diagnostics/scanners/jsonLd.scanner';
+import { isJsonLdAnalysisData, JsonLdAnalysisData } from '../../../../../src/services/diagnostics/scanners/base';
 import { ScannerContext } from '../../../../../src/services/diagnostics/scanners/base';
+
+// Helper function to safely access JSON-LD analysis data
+const getJsonLdAnalysis = (result: any): JsonLdAnalysisData => {
+  if (result.details?.analysis && isJsonLdAnalysisData(result.details.analysis)) {
+    return result.details.analysis;
+  }
+  throw new Error('Expected JsonLdAnalysisData but got different type');
+};
 
 describe('JsonLdScanner', () => {
   let scanner: JsonLdScanner;
@@ -73,10 +82,10 @@ describe('JsonLdScanner', () => {
 
       expect(result.status).toBe('pass');
       expect(result.score).toBeGreaterThanOrEqual(0.8);
-      expect(result.details?.specificData?.found).toBe(true);
-      expect(result.details?.specificData?.count).toBe(1);
-      expect(result.details?.specificData?.hasOrganization).toBe(true);
-      expect(result.details?.specificData?.types).toContain('Organization');
+      expect(getJsonLdAnalysis(result).found).toBe(true);
+      expect(getJsonLdAnalysis(result).count).toBe(1);
+      expect(getJsonLdAnalysis(result).hasOrganization).toBe(true);
+      expect(getJsonLdAnalysis(result).types).toContain('Organization');
     });
 
     it('should pass for WebSite schema', async () => {
@@ -99,8 +108,8 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.specificData?.hasWebSite).toBe(true);
-      expect(result.details?.specificData?.types).toContain('WebSite');
+      expect((result.details?.analysis as any)?.hasWebSite).toBe(true);
+      expect((result.details?.analysis as any)?.types).toContain('WebSite');
     });
 
     it('should handle multiple JSON-LD scripts', async () => {
@@ -138,10 +147,10 @@ describe('JsonLdScanner', () => {
 
       expect(result.status).toBe('pass');
       expect(result.score).toBe(1.0);
-      expect(result.details?.specificData?.count).toBe(3);
-      expect(result.details?.specificData?.hasOrganization).toBe(true);
-      expect(result.details?.specificData?.hasWebSite).toBe(true);
-      expect(result.details?.specificData?.hasArticle).toBe(true);
+      expect((result.details?.analysis as any)?.count).toBe(3);
+      expect((result.details?.analysis as any)?.hasOrganization).toBe(true);
+      expect((result.details?.analysis as any)?.hasWebSite).toBe(true);
+      expect((result.details?.analysis as any)?.hasArticle).toBe(true);
     });
 
     it('should recognize AI-relevant types', async () => {
@@ -170,8 +179,8 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.specificData?.aiRelevantTypes).toContain('FAQPage');
-      expect(result.details?.specificData?.aiRelevantTypes).toContain('HowTo');
+      expect((result.details?.analysis as any)?.aiRelevantTypes).toContain('FAQPage');
+      expect((result.details?.analysis as any)?.aiRelevantTypes).toContain('HowTo');
     });
   });
 
@@ -199,8 +208,8 @@ describe('JsonLdScanner', () => {
 
       // Should still process the valid JSON-LD
       expect(result.status).toBe('pass');
-      expect(result.details?.specificData?.count).toBe(1);
-      expect(result.details?.specificData?.types).toContain('Organization');
+      expect((result.details?.analysis as any)?.count).toBe(1);
+      expect((result.details?.analysis as any)?.types).toContain('Organization');
     });
 
     it('should warn for missing required fields', async () => {
@@ -220,7 +229,7 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.validationIssues).toContain('Missing @context property');
+      expect(result.details?.validation?.errors).toContain('Missing @context property');
     });
 
     it('should validate Organization required fields', async () => {
@@ -241,8 +250,8 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.validationIssues).toContain('Organization missing name property');
-      expect(result.details?.validationIssues).toContain('Organization missing url property');
+      expect(result.details?.validation?.errors).toContain('Organization missing name property');
+      expect(result.details?.validation?.errors).toContain('Organization missing url property');
     });
 
     it('should validate Article required fields', async () => {
@@ -263,9 +272,9 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.validationIssues).toContain('Article missing headline property');
-      expect(result.details?.validationIssues).toContain('Article missing author property');
-      expect(result.details?.validationIssues).toContain('Article missing datePublished property');
+      expect(result.details?.validation?.errors).toContain('Article missing headline property');
+      expect(result.details?.validation?.errors).toContain('Article missing author property');
+      expect(result.details?.validation?.errors).toContain('Article missing datePublished property');
     });
   });
 
@@ -297,9 +306,9 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.specificData?.types).toContain('Article');
-      expect(result.details?.specificData?.types).toContain('Person');
-      expect(result.details?.specificData?.types).toContain('Organization');
+      expect((result.details?.analysis as any)?.types).toContain('Article');
+      expect((result.details?.analysis as any)?.types).toContain('Person');
+      expect((result.details?.analysis as any)?.types).toContain('Organization');
     });
 
     it('should handle array of types', async () => {
@@ -321,8 +330,8 @@ describe('JsonLdScanner', () => {
       const result = await scanner.scan(contextWithHtml);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.specificData?.types).toContain('Article');
-      expect(result.details?.specificData?.types).toContain('NewsArticle');
+      expect((result.details?.analysis as any)?.types).toContain('Article');
+      expect((result.details?.analysis as any)?.types).toContain('NewsArticle');
     });
   });
 

@@ -34,11 +34,11 @@ describe('Enhanced Scanner Details', () => {
 
       expect(result.status).toBe('fail');
       expect(result.details).toBeDefined();
-      expect(result.details!.contentFound).toBe(false);
-      expect(result.details!.validationIssues).toContain('File not found at /llms.txt');
-      expect(result.details!.aiOptimizationOpportunities).toContain('Implement llms.txt file to provide AI agents with crawling instructions');
-      expect(result.details!.specificData).toBeDefined();
-      expect(result.details!.specificData!.checkedPaths).toContain('/llms.txt');
+      expect(result.details!.found).toBe(false);
+      expect(result.details!.validation?.errors).toContain('File not found at /llms.txt');
+      expect(result.details!.aiFactors?.opportunities).toContain('Implement llms.txt file to provide AI agents with structured content overview');
+      expect(result.details!.analysis).toBeDefined();
+      expect((result.details!.analysis as any)?.checkedPaths).toContain('/llms.txt');
     });
 
     it('should provide enhanced details for valid llms.txt', async () => {
@@ -63,12 +63,12 @@ Crawl-delay: 1`;
 
       expect(result.status).toBe('pass');
       expect(result.details).toBeDefined();
-      expect(result.details!.contentFound).toBe(true);
+      expect(result.details!.found).toBe(true);
       expect(result.details!.contentPreview).toBeDefined();
-      expect(result.details!.validationScore).toBe(1.0);
-      expect(result.details!.aiReadinessFactors).toContain('Valid llms.txt file provides AI agent instructions');
-      expect(result.details!.specificData).toBeDefined();
-      expect(result.details!.specificData.hasUserAgent).toBeDefined();
+      expect(result.details!.score).toBe(100);
+      expect(result.details!.aiFactors?.strengths).toContain('Valid llms.txt file provides structured content overview');
+      expect(result.details!.analysis).toBeDefined();
+      expect((result.details!.analysis as any)?.hasUserAgent).toBeDefined();
     });
   });
 
@@ -104,11 +104,11 @@ Allow: /api/`;
       const result = await scanner.scan(context);
 
       expect(result.details).toBeDefined();
-      expect(result.details!.contentFound).toBe(true);
-      expect(result.details!.aiReadinessFactors).toBeDefined();
-      expect(result.details!.aiOptimizationOpportunities).toBeDefined();
-      expect(result.details!.specificData).toBeDefined();
-      expect(result.details!.specificData.hasAiDirectives).toBeDefined();
+      expect(result.details!.found).toBe(true);
+      expect(result.details!.aiFactors?.strengths).toBeDefined();
+      expect(result.details!.aiFactors?.opportunities).toBeDefined();
+      expect(result.details!.analysis).toBeDefined();
+      expect((result.details!.analysis as any)?.hasAiDirectives).toBeDefined();
     });
   });
 
@@ -131,9 +131,9 @@ Allow: /api/`;
 
       expect(result.status).toBe('fail');
       expect(result.details).toBeDefined();
-      expect(result.details!.contentFound).toBe(false);
-      expect(result.details!.validationIssues).toContain('No JSON-LD structured data detected');
-      expect(result.details!.aiOptimizationOpportunities).toContain('Implement JSON-LD structured data for better content understanding');
+      expect(result.details!.found).toBe(false);
+      expect(result.details!.validation?.errors).toContain('No JSON-LD structured data detected');
+      expect(result.details!.aiFactors?.opportunities).toContain('Implement JSON-LD structured data for better content understanding');
     });
 
     it('should provide enhanced details for valid JSON-LD', async () => {
@@ -156,11 +156,11 @@ Allow: /api/`;
       const result = await scanner.scan(context);
 
       expect(result.details).toBeDefined();
-      expect(result.details!.contentFound).toBe(true);
-      expect(result.details!.validationScore).toBeGreaterThan(0);
-      expect(result.details!.aiReadinessFactors).toBeDefined();
-      expect(result.details!.aiOptimizationOpportunities).toBeDefined();
-      expect(result.details!.specificData).toBeDefined();
+      expect(result.details!.found).toBe(true);
+      expect(result.details!.score).toBeGreaterThan(0);
+      expect(result.details!.aiFactors?.strengths).toBeDefined();
+      expect(result.details!.aiFactors?.opportunities).toBeDefined();
+      expect(result.details!.analysis).toBeDefined();
     });
   });
 
@@ -191,14 +191,14 @@ Allow: /api/`;
       const result = await scanner.scan(context);
 
       expect(result.details).toBeDefined();
-      expect(result.details!.contentFound).toBe(true);
-      expect(result.details!.validationScore).toBeGreaterThan(0);
-      expect(result.details!.aiReadinessFactors).toBeDefined();
-      expect(result.details!.aiOptimizationOpportunities).toBeDefined();
-      expect(result.details!.specificData).toBeDefined();
+      expect(result.details!.found).toBe(true);
+      expect(result.details!.score).toBeGreaterThan(0);
+      expect(result.details!.aiFactors?.strengths).toBeDefined();
+      expect(result.details!.aiFactors?.opportunities).toBeDefined();
+      expect(result.details!.analysis).toBeDefined();
       
       // Check that AI readiness factors mention the SEO elements
-      const factors = result.details!.aiReadinessFactors || [];
+      const factors = result.details!.aiFactors?.strengths || [];
       expect(factors.some((f: string) => f.includes('title'))).toBe(true);
     });
   });
@@ -231,13 +231,13 @@ Allow: /api/`;
         
         // Verify all scanners provide the enhanced details structure
         expect(result.details).toBeDefined();
-        expect(typeof result.details!.contentFound).toBe('boolean');
-        expect(Array.isArray(result.details!.aiOptimizationOpportunities)).toBe(true);
-        expect(result.details!.specificData).toBeDefined();
+        expect(typeof result.details!.found).toBe('boolean');
+        expect(Array.isArray(result.details!.aiFactors?.opportunities)).toBe(true);
+        expect(result.details!.analysis).toBeDefined();
         
         // AI-related fields should be present for standards category
         if (scanner.category === 'standards') {
-          expect(Array.isArray(result.details!.aiReadinessFactors)).toBe(true);
+          expect(Array.isArray(result.details!.aiFactors?.strengths)).toBe(true);
         }
       }
     });

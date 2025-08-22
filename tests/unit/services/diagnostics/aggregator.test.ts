@@ -21,7 +21,26 @@ describe('Spec-Compliant DiagnosticAggregator', () => {
     score,
     weight,
     message: `${name} ${status}`,
-    details: { test: true }
+    details: { 
+      found: true,
+      score: 100,
+      analysis: { 
+        found: false,
+        count: 0,
+        types: [],
+        hasOrganization: false,
+        hasWebSite: false,
+        hasWebPage: false,
+        hasBreadcrumb: false,
+        hasProduct: false,
+        hasArticle: false,
+        validationIssues: [],
+        aiRelevantTypes: []
+      }
+    },
+    recommendation: 'Test recommendation',
+    found: true,
+    isValid: true
   });
 
   describe('Spec-compliant aggregation', () => {

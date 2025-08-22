@@ -224,7 +224,7 @@ describe('ScannerRegistry', () => {
       expect(errorResult?.status).toBe('fail');
       expect(errorResult?.score).toBe(0);
       expect(errorResult?.message).toContain('Scanner failed: Scanner error');
-      expect(errorResult?.details?.error).toBe('Scanner error');
+      expect(errorResult?.details?.metadata?.error).toBe('Scanner error');
     });
   });
 

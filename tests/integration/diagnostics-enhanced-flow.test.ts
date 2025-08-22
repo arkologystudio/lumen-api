@@ -22,8 +22,12 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           weight: 2.0,
           message: 'No llms.txt file found',
           details: {
-            error: 'File not found',
-            statusCode: 404
+            found: false,
+            statusCode: 404,
+            score: 0,
+            metadata: {
+              error: 'File not found'
+            }
           },
           recommendation: 'Create an llms.txt file',
           checkedUrl: 'https://example.com/llms.txt',
@@ -38,10 +42,36 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           weight: 1.5,
           message: 'Basic SEO elements found',
           details: {
-            title: { exists: true, optimal: true },
-            metaDescription: { exists: true, optimal: true },
-            headings: { hasH1: true, h1Count: 1 },
-            openGraph: { hasBasicOg: true, missingTags: [] }
+            found: true,
+            score: 100,
+            analysis: {
+              title: { 
+                exists: true, 
+                optimal: true,
+                title: 'Example Title',
+                length: 13
+              },
+              metaDescription: { 
+                exists: true, 
+                optimal: true,
+                metaDescription: 'Example description',
+                length: 19
+              },
+              headings: { 
+                structure: ['h1', 'h2'],
+                h1Count: 1,
+                hasH1: true,
+                hierarchy: true
+              },
+              openGraph: { 
+                hasTitle: true,
+                hasDescription: true,
+                hasImage: false,
+                hasUrl: false,
+                hasType: false,
+                score: 0.6
+              }
+            }
           },
           found: true,
           isValid: true
@@ -55,8 +85,24 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           message: 'JSON-LD found but missing some elements',
           details: {
             found: true,
-            schemas: ['Organization'],
-            validationIssues: ['Missing WebSite schema']
+            score: 60,
+            analysis: {
+              found: true,
+              count: 1,
+              types: ['Organization'],
+              schemas: ['Organization'],
+              hasOrganization: true,
+              hasWebSite: false,
+              hasWebPage: false,
+              hasBreadcrumb: false,
+              hasProduct: false,
+              hasArticle: false,
+              validationIssues: [],
+              aiRelevantTypes: ['Organization']
+            },
+            validation: {
+              errors: ['Missing WebSite schema']
+            }
           },
           recommendation: 'Add WebSite schema for better coverage',
           found: true,
@@ -70,8 +116,11 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           weight: 2.5,
           message: 'No MCP configuration found',
           details: {
-            contentFound: false,
-            validationIssues: ['MCP configuration file not found']
+            found: false,
+            score: 0,
+            validation: {
+              errors: ['MCP configuration file not found']
+            }
           },
           recommendation: 'Implement MCP configuration',
           found: false,
@@ -139,6 +188,8 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           score: 1.0,
           weight: 2.0,
           message: 'Valid llms.txt found',
+          details: { found: true, score: 100 },
+          recommendation: 'Test recommendation',
           found: true,
           isValid: true
         },
@@ -149,6 +200,8 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           score: 0.0,
           weight: 2.5,
           message: 'No MCP configuration found',
+          details: { found: false, score: 0 },
+          recommendation: 'Test recommendation',
           found: false,
           isValid: false
         }
@@ -186,6 +239,9 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           category: 'standards',
           status: 'pass',
           score: 1.0,
+          message: 'Test message',
+          details: { found: true, score: 100 },
+          recommendation: 'Test recommendation',
           found: true,
           isValid: true
         },
@@ -194,6 +250,9 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           category: 'standards',
           status: 'fail',
           score: 0.0,
+          message: 'Test message',
+          details: { found: false, score: 0 },
+          recommendation: 'Test recommendation',
           found: false,
           isValid: false
         },
@@ -202,6 +261,9 @@ describe('Spec-Compliant Diagnostics Flow Integration', () => {
           category: 'standards',
           status: 'pass',
           score: 1.0,
+          message: 'Test message',
+          details: { found: true, score: 100 },
+          recommendation: 'Test recommendation',
           found: true,
           isValid: true
         }

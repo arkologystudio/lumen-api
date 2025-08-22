@@ -36,12 +36,12 @@ export class RobotsScanner extends BaseScanner {
       message,
       details: this.createStandardEvidence({
         statusCode: robotsTxtResult.statusCode,
-        contentFound: robotsTxtResult.found,
+        found: robotsTxtResult.found,
         contentPreview: robotsTxtResult.found ? 
           robotsTxtResult.content?.substring(0, 200) + (robotsTxtResult.content && robotsTxtResult.content.length > 200 ? '...' : '') 
           : undefined,
-        validationScore: Math.round(score * 100),
-        specificData: {
+        score: Math.round(score * 100),
+        analysis: {
           robotsTxt: robotsTxtAnalysis,
           robotsMeta: robotsMetaAnalysis,
           accessIntent,
@@ -49,9 +49,13 @@ export class RobotsScanner extends BaseScanner {
           sitemapReferences: robotsTxtAnalysis?.sitemapCount || 0,
           hasAiDirectives: robotsTxtAnalysis?.hasAiDirectives || false
         },
-        aiReadinessFactors: this.generateAiReadinessFactors(robotsTxtResult.found),
-        aiOptimizationOpportunities: this.generateAiOptimizationOpportunities(robotsTxtResult.found),
-        checkedUrl: robotsTxtUrl
+        aiFactors: {
+          strengths: this.generateAiReadinessFactors(robotsTxtResult.found),
+          opportunities: this.generateAiOptimizationOpportunities(robotsTxtResult.found)
+        },
+        metadata: {
+          checkedUrl: robotsTxtUrl
+        }
       }),
       recommendation: this.generateRecommendation(robotsTxtResult.found),
       checkedUrl: robotsTxtUrl,
@@ -140,7 +144,7 @@ export class RobotsScanner extends BaseScanner {
     return analysis;
   }
   
-  private determineAccessIntent(robotsTxt: any, robotsMeta: any): string {
+  private determineAccessIntent(robotsTxt: any, robotsMeta: any): 'allow' | 'partial' | 'block' {
     const hasRestrictiveAi = 
       robotsTxt?.aiUserAgents?.length > 0 ||
       robotsMeta?.directives?.noai ||

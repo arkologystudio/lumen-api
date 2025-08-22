@@ -46,9 +46,13 @@ export class JsonLdScanner extends BaseScanner {
       return this.createResult({
         status: 'not_applicable',
         message: 'No HTML content available for JSON-LD analysis',
-        details: {
-          reason: 'Page HTML not provided'
-        }
+        details: this.createStandardEvidence({
+          found: false,
+          score: 0,
+          metadata: {
+            reason: 'Page HTML not provided'
+          }
+        })
       });
     }
     
@@ -60,17 +64,22 @@ export class JsonLdScanner extends BaseScanner {
         status: 'fail',
         score: 0.0,
         message: 'No JSON-LD structured data found',
-        details: {
-          contentFound: false,
-          validationIssues: ['No JSON-LD structured data detected'],
-          specificData: analysis,
-          aiReadinessFactors: [],
-          aiOptimizationOpportunities: [
-            'Implement JSON-LD structured data for better content understanding',
-            'Add Organization or Website schema markup',
-            'Include relevant business or content-specific schemas'
-          ]
-        },
+        details: this.createStandardEvidence({
+          found: false,
+          score: 0,
+          validation: {
+            errors: ['No JSON-LD structured data detected']
+          },
+          analysis: analysis,
+          aiFactors: {
+            strengths: [],
+            opportunities: [
+              'Implement JSON-LD structured data for better content understanding',
+              'Add Organization or Website schema markup',
+              'Include relevant business or content-specific schemas'
+            ]
+          }
+        }),
         recommendation: 'Add JSON-LD structured data to help search engines and AI agents understand your content'
       });
     }
@@ -82,14 +91,18 @@ export class JsonLdScanner extends BaseScanner {
       status,
       score,
       message: this.generateMessage(analysis),
-      details: {
-        contentFound: true,
-        validationIssues: analysis.validationIssues,
-        validationScore: score,
-        specificData: analysis,
-        aiReadinessFactors: this.generateAiReadinessFactors(analysis),
-        aiOptimizationOpportunities: this.generateOptimizationOpportunities(analysis, status)
-      },
+      details: this.createStandardEvidence({
+        found: true,
+        score: Math.round(score * 100),
+        validation: {
+          errors: analysis.validationIssues
+        },
+        analysis: analysis,
+        aiFactors: {
+          strengths: this.generateAiReadinessFactors(analysis),
+          opportunities: this.generateOptimizationOpportunities(analysis, status)
+        }
+      }),
       recommendation: this.generateRecommendations(analysis)
     });
   }

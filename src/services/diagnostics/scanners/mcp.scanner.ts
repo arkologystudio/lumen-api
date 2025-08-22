@@ -22,19 +22,23 @@ export class McpScanner extends BaseScanner {
           status: 'fail',
           score: 0.0,
           message: 'No MCP configuration found at /.well-known/mcp.json',
-          details: {
+          details: this.createStandardEvidence({
             statusCode: result.statusCode,
-            contentFound: false,
-            validationIssues: ['MCP configuration file not found'],
-            specificData: {
+            found: false,
+            validation: {
+              errors: ['MCP configuration file not found']
+            },
+            analysis: {
               checkedUrl: mcpUrl,
               hasMcp: false
             },
-            aiOptimizationOpportunities: [
-              'Implement MCP configuration to enable AI agent actions',
-              'Add /.well-known/mcp.json endpoint for advanced AI integrations'
-            ]
-          },
+            aiFactors: {
+              opportunities: [
+                'Implement MCP configuration to enable AI agent actions',
+                'Add /.well-known/mcp.json endpoint for advanced AI integrations'
+              ]
+            }
+          }),
           recommendation: 'Implement Model Context Protocol (MCP) configuration at /.well-known/mcp.json to enable AI agents to perform actions on your site',
           checkedUrl: mcpUrl,
           found: false,
@@ -50,24 +54,28 @@ export class McpScanner extends BaseScanner {
           status: 'warn',
           score: 0.5,
           message: 'MCP configuration found but has validation issues',
-          details: {
+          details: this.createStandardEvidence({
             statusCode: result.statusCode,
-            contentFound: true,
+            found: true,
             contentPreview: result.content?.substring(0, 200),
-            validationIssues: validation.issues,
-            validationScore: 0.5,
-            specificData: {
+            score: 50,
+            validation: {
+              errors: validation.issues
+            },
+            analysis: {
               checkedUrl: mcpUrl,
               hasMcp: true,
               mcpConfig: validation.parsedConfig,
               capabilities: validation.capabilities
             },
-            aiReadinessFactors: [
-              'MCP endpoint exists',
-              'Partial MCP configuration available'
-            ],
-            aiOptimizationOpportunities: validation.issues.map(issue => `Fix: ${issue}`)
-          },
+            aiFactors: {
+              strengths: [
+                'MCP endpoint exists',
+                'Partial MCP configuration available'
+              ],
+              opportunities: validation.issues.map(issue => `Fix: ${issue}`)
+            }
+          }),
           recommendation: `Fix MCP configuration issues: ${validation.issues.join('; ')}`,
           checkedUrl: mcpUrl,
           found: true,
@@ -80,12 +88,12 @@ export class McpScanner extends BaseScanner {
         status: 'pass',
         score: 1.0,
         message: 'Valid MCP configuration enables AI agent actions',
-        details: {
+        details: this.createStandardEvidence({
           statusCode: result.statusCode,
-          contentFound: true,
+          found: true,
           contentPreview: result.content?.substring(0, 200),
-          validationScore: 1.0,
-          specificData: {
+          score: 100,
+          analysis: {
             checkedUrl: mcpUrl,
             hasMcp: true,
             mcpConfig: validation.parsedConfig,
@@ -93,12 +101,14 @@ export class McpScanner extends BaseScanner {
             actionCount: validation.actionCount,
             authRequired: validation.authRequired
           },
-          aiReadinessFactors: [
-            'Valid MCP configuration present',
-            `${validation.actionCount} actions available for AI agents`,
-            validation.authRequired ? 'Authentication configured' : 'Public actions available'
-          ]
-        },
+          aiFactors: {
+            strengths: [
+              'Valid MCP configuration present',
+              `${validation.actionCount} actions available for AI agents`,
+              validation.authRequired ? 'Authentication configured' : 'Public actions available'
+            ]
+          }
+        }),
         checkedUrl: mcpUrl,
         found: true,
         isValid: true
@@ -109,14 +119,17 @@ export class McpScanner extends BaseScanner {
         status: 'fail',
         score: 0.0,
         message: `Error checking MCP configuration: ${error}`,
-        details: {
-          error: String(error),
-          contentFound: false,
-          specificData: {
+        details: this.createStandardEvidence({
+          found: false,
+          score: 0,
+          metadata: {
+            error: String(error)
+          },
+          analysis: {
             checkedUrl: mcpUrl,
             hasMcp: false
           }
-        },
+        }),
         recommendation: 'Ensure MCP endpoint is accessible and returns valid JSON',
         checkedUrl: mcpUrl,
         found: false,

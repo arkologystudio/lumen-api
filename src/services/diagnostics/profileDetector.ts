@@ -1,4 +1,8 @@
-import { ScannerResult } from './scanners/base';
+import { 
+  ScannerResult,
+  isJsonLdAnalysisData,
+  isSeoAnalysisData
+} from './scanners/base';
 
 export type SiteProfile = 
   | 'blog_content'
@@ -56,8 +60,9 @@ export class SiteProfileDetector {
     
     // Check JSON-LD structured data
     const jsonLdIndicator = indicators.find(i => i.indicatorName === 'json_ld');
-    if (jsonLdIndicator?.details?.schemas || jsonLdIndicator?.details?.specificData?.schemas) {
-      const schemas = (jsonLdIndicator.details.schemas || jsonLdIndicator.details.specificData?.schemas) as string[];
+    if (jsonLdIndicator?.details?.analysis && isJsonLdAnalysisData(jsonLdIndicator.details.analysis)) {
+      const jsonLdData = jsonLdIndicator.details.analysis;
+      const schemas = jsonLdData.schemas || jsonLdData.types || [];
       
       // Enhanced e-commerce signals
       const ecommerceSchemas = ['Product', 'Offer', 'ShoppingCart', 'Store', 'OnlineStore', 'ProductModel', 'Brand', 'Review', 'AggregateRating'];
@@ -134,12 +139,11 @@ export class SiteProfileDetector {
     
     // Check meta tags and SEO indicators
     const seoIndicator = indicators.find(i => i.indicatorName === 'seo_basic');
-    if (seoIndicator?.details) {
-      // Handle both legacy and new format
-      const title = (seoIndicator.details.title || 
-        (seoIndicator.details.specificData?.title?.exists ? seoIndicator.details.specificData.title.title : '') || '').toLowerCase();
-      const description = (seoIndicator.details.metaDescription || 
-        (seoIndicator.details.specificData?.metaDescription?.exists ? seoIndicator.details.specificData.metaDescription.metaDescription : '') || '').toLowerCase();
+    if (seoIndicator?.details?.analysis && isSeoAnalysisData(seoIndicator.details.analysis)) {
+      const seoData = seoIndicator.details.analysis;
+      
+      const title = (seoData.title?.title || '').toLowerCase();
+      const description = (seoData.metaDescription?.metaDescription || '').toLowerCase();
       
       // Enhanced e-commerce keywords detection
       const ecommerceKeywords = [
@@ -190,8 +194,8 @@ export class SiteProfileDetector {
       }
       
       // Check navigation/menu content for e-commerce indicators
-      if (seoIndicator.details.specificData?.navigation) {
-        const nav = seoIndicator.details.specificData.navigation;
+      if (seoData.navigation) {
+        const nav = seoData.navigation;
         const allNavText = [...(nav.menuItems || []), ...(nav.linkTexts || [])].join(' ').toLowerCase();
         
         const navEcommerceKeywords = ['shop', 'store', 'products', 'catalogue', 'catalog', 'buy', 'order online', 'cart', 'checkout', 'add to cart'];
@@ -202,8 +206,8 @@ export class SiteProfileDetector {
         }
         
         // Also check headings as fallback
-        if (seoIndicator.details.specificData?.headings?.structure) {
-          const headingsText = seoIndicator.details.specificData.headings.structure.join(' ').toLowerCase();
+        if (seoData.headings?.structure) {
+          const headingsText = seoData.headings.structure.join(' ').toLowerCase();
           const headingMatches = navEcommerceKeywords.filter(keyword => headingsText.includes(keyword));
           if (headingMatches.length > 0) {
             profileScores.ecommerce += 1;

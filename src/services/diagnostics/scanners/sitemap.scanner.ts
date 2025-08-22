@@ -25,23 +25,28 @@ export class SitemapScanner extends BaseScanner {
         status: 'fail',
         score: 0.0,
         message: 'No XML sitemap found',
-        details: {
-          contentFound: false,
-          validationIssues: ['No XML sitemap detected'],
-          specificData: {
+        details: this.createStandardEvidence({
+          found: false,
+          score: 0,
+          validation: {
+            errors: ['No XML sitemap detected']
+          },
+          analysis: {
             checkedLocations: [
               '/sitemap.xml',
               '/sitemap_index.xml',
               'robots.txt'
             ]
           },
-          aiReadinessFactors: [],
-          aiOptimizationOpportunities: [
-            'Create XML sitemap for better content discovery',
-            'Reference sitemap in robots.txt',
-            'Include all important pages in sitemap'
-          ]
-        },
+          aiFactors: {
+            strengths: [],
+            opportunities: [
+              'Create XML sitemap for better content discovery',
+              'Reference sitemap in robots.txt',
+              'Include all important pages in sitemap'
+            ]
+          }
+        }),
         recommendation: 'Create an XML sitemap and reference it in robots.txt for better search engine discovery'
       });
     }
@@ -61,11 +66,17 @@ export class SitemapScanner extends BaseScanner {
         status: 'fail',
         score: 0.2,
         message: 'Sitemap found but contains errors',
-        details: {
-          sitemapUrls,
-          issues: allIssues,
-          totalUrls
-        },
+        details: this.createStandardEvidence({
+          found: true,
+          score: 20,
+          validation: {
+            errors: allIssues
+          },
+          analysis: {
+            sitemapUrls,
+            totalUrls
+          }
+        }),
         recommendation: 'Fix the validation errors in your XML sitemap'
       });
     }
@@ -82,15 +93,21 @@ export class SitemapScanner extends BaseScanner {
       status,
       score,
       message: `Valid XML sitemap${sitemapUrls.length > 1 ? 's' : ''} found with ${totalUrls} URLs`,
-      details: {
-        sitemapUrls,
-        totalUrls,
-        validSitemaps,
-        hasLastmod: validations.some(v => v?.hasLastmod),
-        hasChangefreq: validations.some(v => v?.hasChangefreq),
-        hasPriority: validations.some(v => v?.hasPriority),
-        issues: allIssues.length > 0 ? allIssues : undefined
-      },
+      details: this.createStandardEvidence({
+        found: true,
+        score: Math.round(score * 100),
+        validation: allIssues.length > 0 ? {
+          warnings: allIssues
+        } : undefined,
+        analysis: {
+          sitemapUrls,
+          totalUrls,
+          validSitemaps,
+          hasLastmod: validations.some(v => v?.hasLastmod),
+          hasChangefreq: validations.some(v => v?.hasChangefreq),
+          hasPriority: validations.some(v => v?.hasPriority)
+        }
+      }),
       recommendation: hasOptionalElements 
         ? 'Sitemap is well-structured'
         : 'Consider adding lastmod, changefreq, and priority tags for better SEO'

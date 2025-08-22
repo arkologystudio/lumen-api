@@ -17,10 +17,14 @@ export class AgentJsonScanner extends BaseScanner {
         status: 'fail',
         score: 0.0,
         message: 'No agent.json file found',
-        details: {
-          error: result.error,
-          statusCode: result.statusCode
-        },
+        details: this.createStandardEvidence({
+          found: false,
+          statusCode: result.statusCode,
+          score: 0,
+          metadata: {
+            error: result.error
+          }
+        }),
         recommendation: 'Create an agent.json file at the root of your website to define AI agent capabilities',
         checkedUrl: agentJsonUrl,
         found: false,
@@ -37,10 +41,16 @@ export class AgentJsonScanner extends BaseScanner {
         status: 'fail',
         score: 0.0,
         message: 'Invalid JSON in agent.json file',
-        details: {
-          error: error.message,
-          content: result.content
-        },
+        details: this.createStandardEvidence({
+          found: true,
+          score: 0,
+          metadata: {
+            error: error.message
+          },
+          analysis: {
+            content: result.content
+          }
+        }),
         recommendation: 'Fix the JSON syntax errors in your agent.json file',
         checkedUrl: agentJsonUrl,
         found: true,
@@ -56,11 +66,17 @@ export class AgentJsonScanner extends BaseScanner {
         status: 'warn',
         score: 0.5,
         message: 'agent.json file found but missing recommended fields',
-        details: {
-          missingFields: validation.missingFields,
-          warnings: validation.warnings,
-          content: parsedJson
-        },
+        details: this.createStandardEvidence({
+          found: true,
+          score: 50,
+          validation: {
+            warnings: validation.warnings,
+            missing: validation.missingFields
+          },
+          analysis: {
+            content: parsedJson
+          }
+        }),
         recommendation: `Add the following fields to your agent.json: ${validation.missingFields.join(', ')}`,
         checkedUrl: agentJsonUrl,
         found: true,
@@ -72,11 +88,15 @@ export class AgentJsonScanner extends BaseScanner {
       status: 'pass',
       score: 1.0,
       message: 'Valid agent.json file found',
-      details: {
-        content: parsedJson,
-        capabilities: parsedJson.capabilities?.length || 0,
-        hasApi: !!parsedJson.api
-      },
+      details: this.createStandardEvidence({
+        found: true,
+        score: 100,
+        analysis: {
+          content: parsedJson,
+          capabilities: parsedJson.capabilities?.length || 0,
+          hasApi: !!parsedJson.api
+        }
+      }),
       checkedUrl: agentJsonUrl,
       found: true,
       isValid: true

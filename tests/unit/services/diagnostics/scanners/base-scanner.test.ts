@@ -17,7 +17,23 @@ class TestScanner extends BaseScanner {
       status: 'pass',
       score: 10,
       message: 'Test scanner passed',
-      details: { testData: 'success' }
+      details: this.createStandardEvidence({
+        found: true,
+        score: 100,
+        analysis: { 
+          found: false,
+          count: 0,
+          types: [],
+          hasOrganization: false,
+          hasWebSite: false,
+          hasWebPage: false,
+          hasBreadcrumb: false,
+          hasProduct: false,
+          hasArticle: false,
+          validationIssues: [],
+          aiRelevantTypes: []
+        }
+      })
     });
   }
 }
@@ -84,15 +100,16 @@ describe('BaseScanner', () => {
     it('should create result with correct structure', async () => {
       const result = await testScanner.scan(mockContext);
 
-      expect(result).toEqual({
-        indicatorName: 'test_scanner',
-        category: 'standards',
-        status: 'pass',
-        score: 10,
-        weight: 1.5,
-        message: 'Test scanner passed',
-        details: { testData: 'success' }
-      });
+      expect(result.indicatorName).toBe('test_scanner');
+      expect(result.category).toBe('standards');
+      expect(result.status).toBe('pass');
+      expect(result.score).toBe(10);
+      expect(result.weight).toBe(1.5);
+      expect(result.message).toBe('Test scanner passed');
+      expect(result.details.found).toBe(true);
+      expect(result.details.score).toBe(100);
+      expect(result.details.analysis).toBeDefined();
+      // Analysis is properly typed as JsonLdAnalysisData in this test
     });
   });
 

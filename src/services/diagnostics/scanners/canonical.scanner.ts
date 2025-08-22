@@ -13,9 +13,13 @@ export class CanonicalScanner extends BaseScanner {
       return this.createResult({
         status: 'not_applicable',
         message: 'No HTML content available for canonical URL analysis',
-        details: {
-          reason: 'Page HTML not provided'
-        }
+        details: this.createStandardEvidence({
+          found: false,
+          score: 0,
+          metadata: {
+            reason: 'Page HTML not provided'
+          }
+        })
       });
     }
     
@@ -27,9 +31,13 @@ export class CanonicalScanner extends BaseScanner {
         status: 'warn',
         score: 0.3,
         message: 'No canonical URL specified',
-        details: {
-          pageUrl: context.pageUrl
-        },
+        details: this.createStandardEvidence({
+          found: false,
+          score: 30,
+          analysis: {
+            pageUrl: context.pageUrl
+          }
+        }),
         recommendation: 'Add a canonical URL link tag to prevent duplicate content issues'
       });
     }
@@ -42,11 +50,17 @@ export class CanonicalScanner extends BaseScanner {
         status: 'fail',
         score: 0.0,
         message: 'Invalid canonical URL implementation',
-        details: {
-          canonicalUrl,
-          issues: validation.issues,
-          pageUrl: context.pageUrl
-        },
+        details: this.createStandardEvidence({
+          found: true,
+          score: 0,
+          validation: {
+            errors: validation.issues
+          },
+          analysis: {
+            canonicalUrl,
+            pageUrl: context.pageUrl
+          }
+        }),
         recommendation: validation.recommendation
       });
     }
@@ -60,11 +74,17 @@ export class CanonicalScanner extends BaseScanner {
         status: 'warn',
         score: 0.7,
         message: 'Canonical URL inconsistency detected',
-        details: {
-          canonicalUrl,
-          ogUrl,
-          issue: consistency.issue
-        },
+        details: this.createStandardEvidence({
+          found: true,
+          score: 70,
+          validation: {
+            warnings: consistency.issue ? [consistency.issue] : []
+          },
+          analysis: {
+            canonicalUrl,
+            ogUrl
+          }
+        }),
         recommendation: 'Ensure canonical URL and og:url meta tag are consistent'
       });
     }
@@ -73,11 +93,15 @@ export class CanonicalScanner extends BaseScanner {
       status: 'pass',
       score: 1.0,
       message: 'Proper canonical URL implementation',
-      details: {
-        canonicalUrl,
-        isAbsolute: validation.isAbsolute,
-        matchesOgUrl: consistency.isConsistent
-      }
+      details: this.createStandardEvidence({
+        found: true,
+        score: 100,
+        analysis: {
+          canonicalUrl,
+          isAbsolute: validation.isAbsolute,
+          matchesOgUrl: consistency.isConsistent
+        }
+      })
     });
   }
   

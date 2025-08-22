@@ -24,13 +24,18 @@ export class LlmsTxtScanner extends BaseScanner {
       status: 'fail',
       score: 0.0,
       message: 'No llms.txt file found',
-      details: {
+      details: this.createStandardEvidence({
         statusCode: result.statusCode,
-        error: result.error,
-        contentFound: false,
+        found: false,
         contentPreview: undefined,
-        validationIssues: ['File not found at /llms.txt'],
-        specificData: {
+        score: 0,
+        validation: {
+          errors: ['File not found at /llms.txt']
+        },
+        metadata: {
+          error: result.error
+        },
+        analysis: {
           checkedPaths: ['/llms.txt'],
           expectedFormat: 'Markdown file with H1 title, blockquote summary, and H2 sections with links',
           examples: [
@@ -40,13 +45,15 @@ export class LlmsTxtScanner extends BaseScanner {
             '- [Getting Started](url): Description'
           ]
         },
-        aiReadinessFactors: [],
-        aiOptimizationOpportunities: [
-          'Implement llms.txt file to provide AI agents with structured content overview',
-          'Create clear sections organizing your key documentation and resources',
-          'Include descriptive links to help AI understand your content structure'
-        ]
-      },
+        aiFactors: {
+          strengths: [],
+          opportunities: [
+            'Implement llms.txt file to provide AI agents with structured content overview',
+            'Create clear sections organizing your key documentation and resources',
+            'Include descriptive links to help AI understand your content structure'
+          ]
+        }
+      }),
       recommendation: 'Create an llms.txt file at the root of your website to provide AI agents with a structured overview of your content',
       checkedUrl: llmsTxtUrl,
       found: false,
@@ -62,13 +69,15 @@ export class LlmsTxtScanner extends BaseScanner {
         status: 'warn',
         score: 0.5,
         message: 'llms.txt file found but has issues',
-        details: {
+        details: this.createStandardEvidence({
           statusCode: 200,
-          contentFound: true,
+          found: true,
           contentPreview: result.content?.substring(0, 200) + (result.content && result.content.length > 200 ? '...' : ''),
-          validationIssues: validation.issues,
-          validationScore: 0.5,
-          specificData: {
+          score: 50,
+          validation: {
+            errors: validation.issues
+          },
+          analysis: {
             parsedContent: validation.parsedContent,
             sectionCount: validation.sectionCount,
             detectedSections: Object.keys(validation.parsedContent.sections || {}),
@@ -76,16 +85,18 @@ export class LlmsTxtScanner extends BaseScanner {
             hasTitle: !!validation.parsedContent.title,
             hasSummary: !!validation.parsedContent.summary
           },
-          aiReadinessFactors: [
-            'File exists but has validation issues',
-            'Partial AI agent compatibility'
-          ],
-          aiOptimizationOpportunities: [
-            'Fix validation issues to improve AI content understanding',
-            'Add missing required Markdown structure elements',
-            'Ensure proper Markdown formatting and syntax'
-          ]
-        },
+          aiFactors: {
+            strengths: [
+              'File exists but has validation issues',
+              'Partial AI agent compatibility'
+            ],
+            opportunities: [
+              'Fix validation issues to improve AI content understanding',
+              'Add missing required Markdown structure elements',
+              'Ensure proper Markdown formatting and syntax'
+            ]
+          }
+        }),
         recommendation: 'Fix the issues in your llms.txt file to ensure proper AI content understanding',
         checkedUrl: llmsTxtUrl,
         found: true,
@@ -97,30 +108,31 @@ export class LlmsTxtScanner extends BaseScanner {
       status: 'pass',
       score: 1.0,
       message: 'Valid llms.txt file found',
-      details: {
+            details: this.createStandardEvidence({
         statusCode: 200,
-        contentFound: true,
+        found: true,
         contentPreview: result.content?.substring(0, 200) + (result.content && result.content.length > 200 ? '...' : ''),
-        validationScore: 1.0,
-                  specificData: {
-            parsedContent: validation.parsedContent,
-            sectionCount: validation.sectionCount,
-            detectedSections: Object.keys(validation.parsedContent.sections || {}),
-            contentLength: result.content?.length || 0,
-            hasTitle: !!validation.parsedContent.title,
-            hasSummary: !!validation.parsedContent.summary,
-            linkCount: Object.values(validation.parsedContent.sections || {}).flat().length
-          },
-        aiReadinessFactors: [
+        score: 100,
+        analysis: {
+          parsedContent: validation.parsedContent,
+          sectionCount: validation.sectionCount,
+          detectedSections: Object.keys(validation.parsedContent.sections || {}),
+          contentLength: result.content?.length || 0,
+          hasTitle: !!validation.parsedContent.title,
+          hasSummary: !!validation.parsedContent.summary,
+          linkCount: Object.values(validation.parsedContent.sections || {}).flat().length
+        },
+        aiFactors: {
+          strengths: [
           'Valid llms.txt file provides structured content overview',
           'Proper Markdown formatting detected',
           'AI-friendly content organization established'
         ],
-        aiOptimizationOpportunities: [
-          'Well-configured for AI content understanding',
-          'Consider adding more structured sections as your content grows'
-        ]
-      },
+          opportunities: [
+            'Consider adding more structured sections as your content grows'
+          ]
+        }
+      }),
       checkedUrl: llmsTxtUrl,
       found: true,
       isValid: true

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { CrawlerService, SiteCrawlOptions } from './crawler/crawlerService';
 import { ScannerRegistry, ScannerContext, initializeScanners } from './scanners';
+import { isRobotsAnalysisData, StandardEvidence } from './scanners/base';
 import { LighthouseAIReport, DiagnosticAggregator } from './aggregator';
 import { SiteProfile } from './profileDetector';
 // import { createClient } from '@supabase/supabase-js';
@@ -421,9 +422,9 @@ export class DiagnosticsService {
     // Check robots.txt indicator in indicators object
     const robotsIndicator = result.indicators['robots_txt'];
     if (robotsIndicator?.evidence && typeof robotsIndicator.evidence === 'object') {
-      const evidence = robotsIndicator.evidence as any;
-      if (evidence.details?.specificData?.accessIntent) {
-        return evidence.details.specificData.accessIntent as 'allow' | 'partial' | 'block';
+      const evidence = robotsIndicator.evidence as StandardEvidence;
+      if (evidence.analysis && isRobotsAnalysisData(evidence.analysis)) {
+        return evidence.analysis.accessIntent || 'allow';
       }
     }
     return 'allow'; // Default

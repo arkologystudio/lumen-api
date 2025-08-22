@@ -1,4 +1,13 @@
 import { LlmsTxtScanner } from '../../../../../src/services/diagnostics/scanners/llmsTxt.scanner';
+import { isLlmsTxtAnalysisData, LlmsTxtAnalysisData } from '../../../../../src/services/diagnostics/scanners/base';
+
+// Helper function to safely access LLMs.txt analysis data
+const getLlmsTxtAnalysis = (result: any): LlmsTxtAnalysisData => {
+  if (result.details?.analysis && isLlmsTxtAnalysisData(result.details.analysis)) {
+    return result.details.analysis;
+  }
+  throw new Error('Expected LlmsTxtAnalysisData but got different type');
+};
 import { ScannerContext } from '../../../../../src/services/diagnostics/scanners/base';
 import { fetchUrl } from '../../../../../src/services/diagnostics/scanners/base/scanner.utils';
 
@@ -60,7 +69,7 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('fail');
-      expect(result.details?.error).toBe('Connection timeout');
+      expect(result.details?.metadata?.error).toBe('Connection timeout');
     });
   });
 
@@ -90,9 +99,9 @@ describe('LlmsTxtScanner', () => {
       expect(result.message).toBe('Valid llms.txt file found');
       expect(result.found).toBe(true);
       expect(result.isValid).toBe(true);
-      expect(result.details?.specificData?.parsedContent).toBeDefined();
-      expect(result.details?.specificData?.parsedContent.title).toBe('My Project');
-      expect(result.details?.specificData?.sectionCount).toBeGreaterThan(0);
+      expect((result.details?.analysis as any as any)?.parsedContent).toBeDefined();
+      expect((result.details?.analysis as any as any)?.parsedContent.title).toBe('My Project');
+      expect((result.details?.analysis as any as any)?.sectionCount).toBeGreaterThan(0);
     });
 
     it('should handle complex llms.txt with multiple sections', async () => {
@@ -123,9 +132,9 @@ describe('LlmsTxtScanner', () => {
 
       expect(result.status).toBe('pass');
       expect(result.score).toBe(1.0);
-      expect(result.details?.specificData?.parsedContent.title).toBe('Advanced Documentation Platform');
-      expect(result.details?.specificData?.sectionCount).toBe(3);
-      expect(result.details?.specificData?.linkCount).toBeGreaterThan(5);
+      expect(getLlmsTxtAnalysis(result).parsedContent.title).toBe('Advanced Documentation Platform');
+      expect(getLlmsTxtAnalysis(result).sectionCount).toBe(3);
+      expect(getLlmsTxtAnalysis(result).linkCount).toBeGreaterThan(5);
     });
   });
 
@@ -142,7 +151,7 @@ describe('LlmsTxtScanner', () => {
       expect(result.status).toBe('warn');
       expect(result.score).toBe(0.5);
       expect(result.message).toBe('llms.txt file found but has issues');
-      expect(result.details?.validationIssues).toContain('File is empty');
+      expect(result.details?.validation?.errors).toContain('File is empty');
     });
 
     it('should warn for llms.txt missing title', async () => {
@@ -161,7 +170,7 @@ describe('LlmsTxtScanner', () => {
 
       expect(result.status).toBe('warn');
       expect(result.score).toBe(0.5);
-      expect(result.details?.validationIssues).toContain('Missing required H1 title (should start with "# ")');
+      expect(result.details?.validation?.errors).toContain('Missing required H1 title (should start with "# ")');
     });
 
     it('should warn for malformed markdown links', async () => {
@@ -183,7 +192,7 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.validationIssues).toContain('Line 6: Invalid markdown link format');
+      expect(result.details?.validation?.errors).toContain('Line 6: Invalid markdown link format');
     });
 
     it('should handle whitespace-only content', async () => {
@@ -196,7 +205,7 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn');
-      expect(result.details?.validationIssues).toContain('File is empty');
+      expect(result.details?.validation?.errors).toContain('File is empty');
     });
   });
 
@@ -224,7 +233,7 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.specificData?.sectionCount).toBe(2); // Core Documentation, Optional Resources
+      expect(getLlmsTxtAnalysis(result).sectionCount).toBe(2); // Core Documentation, Optional Resources
     });
 
     it('should handle title only (minimal valid structure)', async () => {
@@ -239,8 +248,8 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('warn'); // Missing summary is a warning, not a failure
-      expect(result.details?.specificData?.parsedContent.title).toBe('My Simple Project');
-            expect(result.details?.validationIssues).toContain('Consider adding a blockquote summary (starting with "> ") to provide context');
+      expect(getLlmsTxtAnalysis(result).parsedContent.title).toBe('My Simple Project');
+            expect(result.details?.validation?.errors).toContain('Consider adding a blockquote summary (starting with "> ") to provide context');
     });
 
     it('should handle special characters in URLs and descriptions', async () => {
@@ -262,8 +271,8 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.specificData?.parsedContent.title).toBe('MyBot Documentation');
-      expect(result.details?.specificData?.linkCount).toBe(3);
+      expect(getLlmsTxtAnalysis(result).parsedContent.title).toBe('MyBot Documentation');
+      expect(getLlmsTxtAnalysis(result).linkCount).toBe(3);
     });
 
     it('should handle very large files with many sections', async () => {
@@ -283,8 +292,8 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('pass');
-      expect(result.details?.specificData?.sectionCount).toBe(50);
-      expect(result.details?.specificData?.linkCount).toBe(50);
+      expect(getLlmsTxtAnalysis(result).sectionCount).toBe(50);
+      expect(getLlmsTxtAnalysis(result).linkCount).toBe(50);
     });
   });
 
@@ -328,7 +337,7 @@ describe('LlmsTxtScanner', () => {
       const result = await scanner.scan(mockContext);
 
       expect(result.status).toBe('fail');
-      expect(result.details?.error).toBe('Network error');
+      expect(result.details?.metadata?.error).toBe('Network error');
     });
   });
 });

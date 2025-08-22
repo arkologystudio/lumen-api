@@ -4,12 +4,14 @@ import { extractMetaTags } from './base/scanner.utils';
 interface SeoAnalysis {
   title: {
     exists: boolean;
+    title?: string;
     length?: number;
     optimal: boolean;
     issue?: string;
   };
   metaDescription: {
     exists: boolean;
+    metaDescription?: string;
     length?: number;
     optimal: boolean;
     issue?: string;
@@ -18,11 +20,16 @@ interface SeoAnalysis {
     h1Count: number;
     hasH1: boolean;
     structure: string[];
+    hierarchy: boolean;
     issue?: string;
   };
   openGraph: {
-    hasBasicOg: boolean;
-    missingTags: string[];
+    hasTitle: boolean;
+    hasDescription: boolean;
+    hasImage: boolean;
+    hasUrl: boolean;
+    hasType: boolean;
+    score: number;
   };
   navigation: {
     menuItems: string[];
@@ -42,10 +49,14 @@ export class SeoBasicScanner extends BaseScanner {
         status: 'not_applicable',
         message: 'No HTML content available for SEO analysis',
         details: this.createStandardEvidence({
-          contentFound: false,
-          validationScore: 0,
-          error: 'Page HTML not provided',
-          aiOptimizationOpportunities: ['Ensure page HTML is available for analysis']
+          found: false,
+          score: 0,
+          metadata: {
+            error: 'Page HTML not provided'
+          },
+          aiFactors: {
+            opportunities: ['Ensure page HTML is available for analysis']
+          }
         })
       });
     }
@@ -59,11 +70,13 @@ export class SeoBasicScanner extends BaseScanner {
       score,
       message: this.generateMessage(analysis),
       details: this.createStandardEvidence({
-        contentFound: true,
-        validationScore: Math.round(score * 100),
-        specificData: analysis,
-        aiReadinessFactors: this.generateAiReadinessFactors(analysis),
-        aiOptimizationOpportunities: this.generateOptimizationOpportunities(analysis, status)
+        found: true,
+        score: Math.round(score * 100),
+        analysis: analysis,
+        aiFactors: {
+          strengths: this.generateAiReadinessFactors(analysis),
+          opportunities: this.generateOptimizationOpportunities(analysis, status)
+        }
       }),
       recommendation: this.generateRecommendations(analysis),
       found: true,
@@ -119,6 +132,7 @@ export class SeoBasicScanner extends BaseScanner {
     
     return {
       exists: true,
+      title,
       length,
       optimal,
       issue
@@ -146,6 +160,7 @@ export class SeoBasicScanner extends BaseScanner {
     
     return {
       exists: true,
+      metaDescription: description,
       length,
       optimal,
       issue
@@ -176,27 +191,48 @@ export class SeoBasicScanner extends BaseScanner {
       issue = `Multiple H1 tags found (${h1Count})`;
     }
     
+    // Check heading hierarchy (simple check for proper order)
+    const hierarchy = this.checkHeadingHierarchy(structure);
+    
     return {
       h1Count,
       hasH1: h1Count > 0,
       structure: structure.slice(0, 10), // First 10 headings
+      hierarchy,
       issue
     };
   }
   
-  private analyzeOpenGraph(metaTags: Record<string, string>): SeoAnalysis['openGraph'] {
-    const requiredOgTags = ['og:title', 'og:description', 'og:image', 'og:url'];
-    const missingTags: string[] = [];
-    
-    for (const tag of requiredOgTags) {
-      if (!metaTags[tag]) {
-        missingTags.push(tag);
+  private checkHeadingHierarchy(structure: string[]): boolean {
+    // Simple hierarchy check - ensure no skipping levels
+    let previousLevel = 0;
+    for (const heading of structure) {
+      const level = parseInt(heading.charAt(1));
+      if (previousLevel > 0 && level > previousLevel + 1) {
+        return false; // Skipped a level
       }
+      previousLevel = level;
     }
+    return true;
+  }
+  
+  private analyzeOpenGraph(metaTags: Record<string, string>): SeoAnalysis['openGraph'] {
+    const hasTitle = !!metaTags['og:title'];
+    const hasDescription = !!metaTags['og:description'];
+    const hasImage = !!metaTags['og:image'];
+    const hasUrl = !!metaTags['og:url'];
+    const hasType = !!metaTags['og:type'];
+    
+    const presentCount = [hasTitle, hasDescription, hasImage, hasUrl, hasType].filter(Boolean).length;
+    const score = Math.round((presentCount / 5) * 100);
     
     return {
-      hasBasicOg: missingTags.length === 0,
-      missingTags
+      hasTitle,
+      hasDescription,
+      hasImage,
+      hasUrl,
+      hasType,
+      score
     };
   }
   
@@ -263,9 +299,9 @@ export class SeoBasicScanner extends BaseScanner {
       score += 0.1;
     }
     
-    if (analysis.openGraph.hasBasicOg) {
+    if (analysis.openGraph.score >= 80) {
       score += 0.15;
-    } else if (analysis.openGraph.missingTags.length <= 2) {
+    } else if (analysis.openGraph.score >= 60) {
       score += 0.05;
     }
     
@@ -293,7 +329,7 @@ export class SeoBasicScanner extends BaseScanner {
       issues.push('multiple H1 tags');
     }
     
-    if (!analysis.openGraph.hasBasicOg) {
+    if (analysis.openGraph.score < 60) {
       issues.push('incomplete Open Graph tags');
     }
     
@@ -321,8 +357,9 @@ export class SeoBasicScanner extends BaseScanner {
       recommendations.push(analysis.headings.issue);
     }
     
-    if (analysis.openGraph.missingTags.length > 0) {
-      recommendations.push(`Add missing Open Graph tags: ${analysis.openGraph.missingTags.join(', ')}`);
+    const missingOgTags = this.getMissingOgTags(analysis.openGraph);
+    if (missingOgTags.length > 0) {
+      recommendations.push(`Add missing Open Graph tags: ${missingOgTags.join(', ')}`);
     }
     
     return recommendations.length > 0
@@ -345,7 +382,7 @@ export class SeoBasicScanner extends BaseScanner {
       factors.push('H1 heading provides content structure');
     }
     
-    if (analysis.openGraph.hasBasicOg) {
+    if (analysis.openGraph.score >= 80) {
       factors.push('Open Graph tags enhance social sharing and content understanding');
     }
     
@@ -367,7 +404,8 @@ export class SeoBasicScanner extends BaseScanner {
       opportunities.push('Implement proper heading structure for content hierarchy');
     }
     
-    if (analysis.openGraph.missingTags.length > 0) {
+    const missingOgTags = this.getMissingOgTags(analysis.openGraph);
+    if (missingOgTags.length > 0) {
       opportunities.push('Add Open Graph tags for enhanced social media and AI understanding');
     }
     
@@ -376,5 +414,17 @@ export class SeoBasicScanner extends BaseScanner {
     }
     
     return opportunities;
+  }
+  
+  private getMissingOgTags(openGraph: SeoAnalysis['openGraph']): string[] {
+    const missingTags: string[] = [];
+    
+    if (!openGraph.hasTitle) missingTags.push('og:title');
+    if (!openGraph.hasDescription) missingTags.push('og:description');
+    if (!openGraph.hasImage) missingTags.push('og:image');
+    if (!openGraph.hasUrl) missingTags.push('og:url');
+    if (!openGraph.hasType) missingTags.push('og:type');
+    
+    return missingTags;
   }
 }

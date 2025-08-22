@@ -23,8 +23,27 @@ describe('Spec Compliance Tests', () => {
           category: 'structured_data',
           status: 'pass',
           details: {
-            schemas: ['Product', 'Offer']
-          }
+            found: true,
+            score: 100,
+            analysis: {
+              found: true,
+              count: 2,
+              types: ['Product', 'Offer'],
+              schemas: ['Product', 'Offer'],
+              hasOrganization: false,
+              hasWebSite: false,
+              hasWebPage: false,
+              hasBreadcrumb: false,
+              hasProduct: true,
+              hasArticle: false,
+              validationIssues: [],
+              aiRelevantTypes: ['Product', 'Offer']
+            }
+          },
+          message: 'Test message',
+          recommendation: 'Test recommendation',
+          found: true,
+          isValid: true
         }
       ];
 
@@ -43,8 +62,27 @@ describe('Spec Compliance Tests', () => {
           category: 'structured_data',
           status: 'pass',
           details: {
-            schemas: ['Article', 'BlogPosting']
-          }
+            found: true,
+            score: 100,
+            analysis: {
+              found: true,
+              count: 2,
+              types: ['Article', 'BlogPosting'],
+              schemas: ['Article', 'BlogPosting'],
+              hasOrganization: false,
+              hasWebSite: false,
+              hasWebPage: false,
+              hasBreadcrumb: false,
+              hasProduct: false,
+              hasArticle: true,
+              validationIssues: [],
+              aiRelevantTypes: ['Article', 'BlogPosting']
+            }
+          },
+          message: 'Test message',
+          recommendation: 'Test recommendation',
+          found: true,
+          isValid: true
         }
       ];
 
@@ -122,19 +160,34 @@ describe('Spec Compliance Tests', () => {
           indicatorName: 'llms_txt',
           category: 'standards',
           status: 'pass',
-          score: 1.0
+          score: 1.0,
+          message: 'Test message',
+          details: { found: true, score: 100 },
+          recommendation: 'Test recommendation',
+          found: true,
+          isValid: true
         },
         {
           indicatorName: 'json_ld',
           category: 'structured_data',
           status: 'warn',
-          score: 0.5
+          score: 0.5,
+          message: 'Test message',
+          details: { found: true, score: 50 },
+          recommendation: 'Test recommendation',
+          found: true,
+          isValid: true
         },
         {
           indicatorName: 'seo_basic',
           category: 'seo',
           status: 'fail',
-          score: 0.0
+          score: 0.0,
+          message: 'Test message',
+          details: { found: false, score: 0 },
+          recommendation: 'Test recommendation',
+          found: false,
+          isValid: false
         }
       ]);
 
@@ -152,13 +205,23 @@ describe('Spec Compliance Tests', () => {
           indicatorName: 'mcp', // Not applicable for blogs
           category: 'standards',
           status: 'fail',
-          score: 0.0
+          score: 0.0,
+          message: 'Test message',
+          details: { found: false, score: 0 },
+          recommendation: 'Test recommendation',
+          found: false,
+          isValid: false
         },
         {
           indicatorName: 'llms_txt', // Required for blogs
           category: 'standards',
           status: 'pass',
-          score: 1.0
+          score: 1.0,
+          message: 'Test message',
+          details: { found: true, score: 100 },
+          recommendation: 'Test recommendation',
+          found: true,
+          isValid: true
         }
       ]);
 
@@ -245,7 +308,7 @@ describe('Spec Compliance Tests', () => {
       expect(result.score).toBe(1.0);
       expect(result.found).toBe(true);
       expect(result.isValid).toBe(true);
-      expect(result.details?.specificData?.actionCount).toBe(1);
+      expect((result.details?.analysis as any)?.actionCount).toBe(1);
     });
 
     it('should fail when MCP is not found', async () => {
@@ -291,7 +354,7 @@ describe('Spec Compliance Tests', () => {
       expect(result.score).toBe(0.5);
       expect(result.found).toBe(true);
       expect(result.isValid).toBe(false);
-      expect(result.details?.validationIssues).toContain('Missing required field: version');
+      expect(result.details?.validation?.errors).toContain('Missing required field: version');
     });
   });
 });
