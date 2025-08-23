@@ -30,20 +30,23 @@ The `products.config.json` file is the authoritative source for all product defi
 
 ### Current Products
 
-1. **AI Readiness Analysis** (`ai-readiness-analysis`)
-   - Base Price: $19
+1. **AI Ready Diagnostics - Beacon** (`ai-ready-diagnostics`)
+   - Free Tier: $0 (Rate limited)
+   - Pro Tier: $9/month
+   - Enterprise: $6/month per site (6+ sites)
    - Category: Analysis
-   - Beta: Yes
 
-2. **Neural Search - Knowledge** (`neural-search-knowledge`)
-   - Base Price: $29
+2. **Neural Search Knowledge - Lumen** (`neural-search-knowledge`)
+   - Standard: $9/month (1,000 queries)
+   - Premium: $19/month (10,000 queries)
+   - Enterprise: Custom pricing
    - Category: Search
-   - Beta: No
 
-3. **Neural Search - Product** (`neural-search-product`)
-   - Base Price: $49
+3. **Neural Search Woocommerce - Lumen** (`neural-search-woocommerce`)
+   - Standard: $19/month (1,000 queries)
+   - Premium: $39/month (10,000 queries)
+   - Enterprise: Contact for pricing
    - Category: Search
-   - Beta: No
 
 ### Making Changes
 
@@ -58,6 +61,7 @@ To update products or pricing:
 ### Changelog
 
 - **v1.0.0** (2025-01-12): Initial configuration with 3 core products and tiered pricing
+- **v1.1.0** (2025-08-22): Simplified pricing tiers, renamed products, reduced complexity
 
 ### Usage in Code
 

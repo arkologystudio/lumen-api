@@ -1,117 +1,59 @@
 /**
  * Shared Pricing Configuration
- * Centralized pricing tiers and add-on pricing to avoid duplication
+ * THIS FILE IS DEPRECATED - All pricing is now in products.config.json
+ * Kept for backward compatibility during migration
  */
 
 import { LicenseType } from "../types";
+import * as fs from "fs";
+import * as path from "path";
+
+/**
+ * Load pricing from products.config.json
+ * This ensures single source of truth for all pricing data
+ */
+const loadPricingFromConfig = () => {
+  const configPath = path.join(__dirname, "products.config.json");
+  const configData = fs.readFileSync(configPath, "utf-8");
+  const config = JSON.parse(configData);
+  
+  // Map tier names to license types (excluding duplicates from legacy mappings)
+  const tierMapping: Record<string, LicenseType[]> = {
+    "free": ["free"],
+    "standard": ["standard"],
+    "pro": ["pro"],
+    "premium": ["premium"],
+    "enterprise": ["enterprise"]
+  };
+  
+  const pricingConfig: Partial<Record<LicenseType, any>> = {};
+  
+  // Convert new tier structure to support both new and legacy types
+  config.pricingTiers.forEach((tier: any) => {
+    const types = tierMapping[tier.tier_name];
+    if (types) {
+      types.forEach((type: LicenseType) => {
+        pricingConfig[type] = {
+          monthly_price: tier.monthly_price || 0,
+          annual_price: tier.annual_price || 0,
+          max_queries: tier.max_queries,
+          max_sites: tier.max_sites === -1 ? 10 : tier.max_sites,
+          agent_api_access: tier.agent_api_access,
+          features: tier.features || [],
+          description: tier.description || ""
+        };
+      });
+    }
+  });
+  
+  return pricingConfig as Record<LicenseType, any>;
+};
 
 /**
  * Pricing configuration for all license types
+ * DEPRECATED: Use products.config.json instead
  */
-export const PRICING_CONFIG: Record<
-  LicenseType,
-  {
-    monthly_price: number;
-    annual_price: number;
-    max_queries: number | null;
-    max_sites: number;
-    agent_api_access: boolean;
-    features: string[];
-    description: string;
-  }
-> = {
-  trial: {
-    monthly_price: 0,
-    annual_price: 0,
-    max_queries: 50,
-    max_sites: 1,
-    agent_api_access: false,
-    features: ["Basic search", "50 queries/month", "Single site"],
-    description:
-      "Basic semantic search for a single site's knowledge base or product catalog via the human-facing UI.",
-  },
-  standard: {
-    monthly_price: 19,
-    annual_price: 205,
-    max_queries: 100,
-    max_sites: 1,
-    agent_api_access: false,
-    features: [
-      "Semantic search",
-      "100 queries/month",
-      "Single site",
-      "Human UI access",
-    ],
-    description:
-      "Basic semantic search for a single site's knowledge base or product catalog via the human-facing UI.",
-  },
-  standard_plus: {
-    monthly_price: 24,
-    annual_price: 259,
-    max_queries: 100,
-    max_sites: 1,
-    agent_api_access: true,
-    features: [
-      "Semantic search",
-      "100 queries/month",
-      "Single site",
-      "Human UI access",
-      "Agent/API access",
-    ],
-    description:
-      "Everything in Standard, plus programmatic access (agent/API) so bots and AI agents can query your content.",
-  },
-  premium: {
-    monthly_price: 49,
-    annual_price: 529,
-    max_queries: 2000,
-    max_sites: 1,
-    agent_api_access: false,
-    features: [
-      "Advanced search",
-      "2000 queries/month",
-      "Single site",
-      "Human UI access",
-      "Priority support",
-    ],
-    description:
-      "Higher-volume plan for growing sites that need more monthly queries, still UI-only.",
-  },
-  premium_plus: {
-    monthly_price: 59,
-    annual_price: 637,
-    max_queries: 2000,
-    max_sites: 1,
-    agent_api_access: true,
-    features: [
-      "Advanced search",
-      "2000 queries/month",
-      "Single site",
-      "Human UI access",
-      "Agent/API access",
-      "Priority support",
-    ],
-    description:
-      "All Premium features, with agent/API access for integrations and autonomous agents.",
-  },
-  enterprise: {
-    monthly_price: 199,
-    annual_price: 2149,
-    max_queries: null,
-    max_sites: 10,
-    agent_api_access: true,
-    features: [
-      "Unlimited queries",
-      "Up to 10 sites",
-      "Agent/API access",
-      "Priority support",
-      "Custom SLA",
-      "Dedicated onboarding",
-    ],
-    description:
-      "Unlimited queries and multi-site support, with white-glove SLAs and priority support.",
-  },
-};
+export const PRICING_CONFIG = loadPricingFromConfig();
 
 /**
  * Add-on pricing configuration

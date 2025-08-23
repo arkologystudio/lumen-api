@@ -268,7 +268,7 @@ export const searchSiteController = async (
 ) => {
   try {
     const { site_id } = req.params;
-    const { query, topK }: { query: string; topK?: number } = req.body;
+    const { query, topK, type }: { query: string; topK?: number; type?: string } = req.body;
 
     if (!query) {
       res.status(400).json({
@@ -299,48 +299,97 @@ export const searchSiteController = async (
       return;
     }
 
-    // Search for similar posts within the specified site
-    const similarPosts = await querySimilarSitePosts(
-      site_id,
-      query,
-      topK || 10
-    );
-
-    // Check if we found any results
-    if (similarPosts.length === 0) {
-      // Set results count for tracking
-      (res as any).resultsCount = 0;
+    // Determine search type (products or posts)
+    if (type === 'product' || type === 'products') {
+      // Import product search function
+      const { queryProductSearch } = await import("../services/productVectorStore");
       
+      // Search for similar products within the specified site
+      const similarProducts = await queryProductSearch(
+        site_id,
+        query,
+        {}, // filters
+        topK || 10
+      );
+
+      // Check if we found any results
+      if (similarProducts.length === 0) {
+        // Set results count for tracking
+        (res as any).resultsCount = 0;
+        
+        res.json({
+          success: true,
+          data: {
+            results: [],
+            site_id: site_id,
+            query: query,
+            totalProducts: 0,
+            type: "products",
+          },
+          message: "No matching products found for your query.",
+        });
+        return;
+      }
+
+      // Set results count for tracking
+      (res as any).resultsCount = similarProducts.length;
+
       res.json({
         success: true,
         data: {
-          results: [],
+          results: similarProducts,
           site_id: site_id,
           query: query,
-          totalPosts: 0,
-          totalChunks: 0,
+          totalProducts: similarProducts.length,
+          type: "products",
         },
-        message: "No matching content found for your query.",
       });
-      return;
+    } else {
+      // Default to searching posts
+      const similarPosts = await querySimilarSitePosts(
+        site_id,
+        query,
+        topK || 10
+      );
+
+      // Check if we found any results
+      if (similarPosts.length === 0) {
+        // Set results count for tracking
+        (res as any).resultsCount = 0;
+        
+        res.json({
+          success: true,
+          data: {
+            results: [],
+            site_id: site_id,
+            query: query,
+            totalPosts: 0,
+            totalChunks: 0,
+            type: "posts",
+          },
+          message: "No matching content found for your query.",
+        });
+        return;
+      }
+
+      // Set results count for tracking
+      (res as any).resultsCount = similarPosts.length;
+
+      res.json({
+        success: true,
+        data: {
+          results: similarPosts,
+          site_id: site_id,
+          query: query,
+          totalPosts: similarPosts.length,
+          totalChunks: similarPosts.reduce(
+            (sum: number, post: any) => sum + post.totalChunks,
+            0
+          ),
+          type: "posts",
+        },
+      });
     }
-
-    // Set results count for tracking
-    (res as any).resultsCount = similarPosts.length;
-
-    res.json({
-      success: true,
-      data: {
-        results: similarPosts,
-        site_id: site_id,
-        query: query,
-        totalPosts: similarPosts.length,
-        totalChunks: similarPosts.reduce(
-          (sum: number, post: any) => sum + post.totalChunks,
-          0
-        ),
-      },
-    });
   } catch (error) {
     console.error("Error searching site:", error);
 
@@ -349,8 +398,8 @@ export const searchSiteController = async (
         res.status(404).json({
           success: false,
           error:
-            "Post content has not been embedded yet. Please embed posts first.",
-          code: "POSTS_NOT_EMBEDDED",
+            "Content has not been embedded yet. Please embed content first.",
+          code: "CONTENT_NOT_EMBEDDED",
         });
       } else if (error.message.includes("access denied") || error.message.includes("not authorized")) {
         res.status(403).json({
@@ -382,7 +431,7 @@ export const embedSiteController = async (
 ) => {
   try {
     const { site_id } = req.params;
-    const batchData: EmbedBatchRequest = {
+    const batchData: EmbedBatchRequest & { products?: any[] } = {
       ...req.body,
       site_id: site_id,
     };
@@ -409,12 +458,99 @@ export const embedSiteController = async (
       return;
     }
 
-    // Validate the batch request structure
-    if (!batchData.posts || !Array.isArray(batchData.posts)) {
+    // Determine content type and validate request structure
+    const hasPosts = batchData.posts && Array.isArray(batchData.posts);
+    const hasProducts = batchData.products && Array.isArray(batchData.products);
+
+    if (!hasPosts && !hasProducts) {
       res.status(400).json({
         success: false,
         error:
-          "Invalid request format. Expected 'posts' array in request body.",
+          "Invalid request format. Expected 'posts' or 'products' array in request body.",
+      });
+      return;
+    }
+
+    // Handle products if provided
+    if (hasProducts && batchData.products) {
+      console.log(`Processing ${batchData.products.length} products for site ${site_id}`);
+      
+      // Import product processing functions dynamically
+      const { processProductBatch } = await import("../services/productProcessing");
+      const { upsertProductEmbedding } = await import("../services/productVectorStore");
+      
+      try {
+        // Process products - ensure proper typing
+        const productRequests = batchData.products.map((p: any) => ({
+          ...p,
+          type: 'product' as const,
+          site_id: site_id
+        }));
+        
+        const processedProducts = processProductBatch(productRequests);
+        
+        // Update site embedding status
+        await updateSiteEmbeddingStatus(site_id, "in_progress");
+        
+        // Send immediate response
+        res.json({
+          success: true,
+          message: `Processing ${processedProducts.length} products for embedding`,
+          data: {
+            status: "processing",
+            siteId: site_id,
+            siteName: site.name,
+            siteUrl: site.url,
+            productCount: processedProducts.length,
+            type: "products"
+          }
+        });
+        
+        // Process products in background
+        setImmediate(async () => {
+          try {
+            console.log(`Starting product embedding for ${processedProducts.length} products`);
+            
+            for (const product of processedProducts) {
+              // Ensure numeric values are properly converted
+              const rating = product.structured_data?.rating;
+              const numericRating = rating !== undefined ? 
+                (typeof rating === 'string' ? parseFloat(rating) : rating) : undefined;
+              
+              await upsertProductEmbedding(site_id, {
+                product_id: product.id,
+                title: product.title,
+                url: product.url,
+                brand: product.structured_data?.brand as string,
+                category: product.structured_data?.category as string,
+                price_usd: product.price_normalized,
+                rating: numericRating,
+                availability: product.structured_data?.availability as string,
+                searchable_text: product.searchable_text,
+                structured_data: product.structured_data
+              });
+            }
+            
+            await updateSiteEmbeddingStatus(site_id, "completed");
+            console.log(`Product embedding completed for site ${site_id}`);
+          } catch (error) {
+            console.error(`Product embedding failed for site ${site_id}:`, error);
+            await updateSiteEmbeddingStatus(site_id, "failed");
+          }
+        });
+        
+        return;
+      } catch (error) {
+        await updateSiteEmbeddingStatus(site_id, "failed");
+        throw error;
+      }
+    }
+
+    // Continue with posts processing if no products
+    if (!hasPosts) {
+      res.status(400).json({
+        success: false,
+        error: "No posts found in request",
       });
       return;
     }

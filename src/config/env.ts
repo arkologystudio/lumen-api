@@ -31,7 +31,7 @@ export const ENV = {
   EMBEDDING_MODEL: process.env.EMBEDDING_MODEL,
   INFERENCE_PROVIDER: process.env.INFERENCE_PROVIDER,
   HUGGING_FACE_API_TOKEN: process.env.HUGGING_FACE_API_TOKEN,
-  PORT: process.env.PORT || "3000",
+  PORT: process.env.PORT || "4000",
   
   // Database - Environment-specific URL selection
   DATABASE_URL: getDatabaseUrl(),

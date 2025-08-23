@@ -7,6 +7,8 @@ import { Request, Response } from "express";
 import { prisma } from "../config/database";
 import { LicenseType } from "../types";
 import { PRICING_CONFIG, ADD_ON_PRICING } from "../config/pricing";
+import * as fs from "fs";
+import * as path from "path";
 
 /**
  * GET /api/pricing/tiers
@@ -272,39 +274,37 @@ export const getProductPricingTiers = async (
       return;
     }
 
-    // Generate pricing tiers for this product
-    const pricing_tiers = Object.entries(PRICING_CONFIG).map(
-      ([tierName, config], index) => ({
-        id: `${product.id}-${tierName}`,
-        product_id: product.id,
-        tier_name: tierName,
-        display_name: tierName
-          .replace("_", "+")
-          .split(" ")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" "),
-        description: config.description,
-        monthly_price: config.monthly_price,
-        annual_price: config.annual_price,
-        max_queries: config.max_queries ?? undefined,
-        max_sites: config.max_sites,
-        agent_api_access: config.agent_api_access,
-        extra_site_price:
-          tierName === "enterprise"
-            ? ADD_ON_PRICING.extra_site_price
-            : undefined,
-        overage_price:
-          tierName !== "enterprise"
-            ? ADD_ON_PRICING.query_overage_price
-            : undefined,
-        custom_embedding_markup: ADD_ON_PRICING.custom_embedding_markup,
-        features: config.features,
-        is_active: true,
-        sort_order: index,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+    // Load pricing tiers from products.config.json for this specific product
+    const configPath = path.join(__dirname, "../config/products.config.json");
+    const configData = fs.readFileSync(configPath, "utf-8");
+    const config = JSON.parse(configData);
+    
+    // Filter pricing tiers for this specific product
+    const productTiers = config.pricingTiers.filter(
+      (tier: any) => tier.product_slug === product_slug
     );
+    
+    // Map the tiers to the expected format
+    const pricing_tiers = productTiers.map((tier: any, index: number) => ({
+      id: `${product.id}-${tier.tier_name}`,
+      product_id: product.id,
+      tier_name: tier.tier_name,
+      display_name: tier.display_name,
+      description: tier.description,
+      monthly_price: tier.monthly_price,
+      annual_price: tier.annual_price,
+      max_queries: tier.max_queries ?? undefined,
+      max_sites: tier.max_sites,
+      agent_api_access: tier.agent_api_access,
+      extra_site_price: tier.extra_site_price,
+      overage_price: tier.overage_price,
+      custom_embedding_markup: tier.custom_embedding_markup,
+      features: tier.features,
+      is_active: tier.is_active,
+      sort_order: tier.sort_order || index,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
 
     res.json({
       success: true,
@@ -315,7 +315,7 @@ export const getProductPricingTiers = async (
         description: product.description,
         category: product.category,
       },
-      pricing_tiers,
+      tiers: pricing_tiers,
       add_ons: {
         extra_site_price: ADD_ON_PRICING.extra_site_price,
         query_overage_price: ADD_ON_PRICING.query_overage_price,

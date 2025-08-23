@@ -212,10 +212,7 @@ export const querySimilarSitePosts = async (
   query: string,
   topK: number = 10
 ): Promise<PostSearchResult[]> => {
-  const thresholdStr = ENV.SEARCH_THRESHOLD;
-  if (!thresholdStr) {
-    throw new Error("THRESHOLD environment variable is not defined");
-  }
+  const thresholdStr = ENV.SEARCH_THRESHOLD || "0.5"; // Default to 0.5 if not set
   const threshold = parseFloat(thresholdStr);
   console.log(
     `Querying similar posts for site ${siteId} with threshold:`,

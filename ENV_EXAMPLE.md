@@ -7,7 +7,7 @@ Create a `.env` file in the root directory with the following variables:
 NODE_ENV=development
 
 # Server Configuration
-PORT=3000
+PORT=4000
 
 # JWT Configuration
 JWT_SECRET=your-super-secret-jwt-key-here
@@ -35,10 +35,10 @@ RATE_LIMIT_MAX=10
 
 
 # CORS Origins
-CORS_ORIGIN_DEV=http://localhost:3000
+CORS_ORIGIN_DEV=http://localhost:4000
 CORS_ORIGIN_PROD=https://your-production-domain.com
 CORS_ORIGIN_STAGING=https://your-staging-domain.com
-CORS_ORIGIN_DASHBOARD_DEV=http://localhost:3333
+CORS_ORIGIN_DASHBOARD_DEV=http://localhost:4444
 
 # API Keys
 # Legacy server API key (for backward compatibility)
