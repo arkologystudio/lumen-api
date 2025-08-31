@@ -50,8 +50,8 @@ const sleep = (ms: number): Promise<void> =>
 const shouldRetry = (error: unknown): boolean => {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status;
-    // Retry on 503 (Service Unavailable) and 429 (Too Many Requests)
-    return status === 503 || status === 429;
+    // Retry on 500 (Internal Server Error), 503 (Service Unavailable), and 429 (Too Many Requests)
+    return status === 500 || status === 503 || status === 429;
   }
   return false;
 };

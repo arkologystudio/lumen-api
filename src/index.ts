@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { createDynamicOriginHandler } from "./services/corsService";
 // Import new route modules
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/userRoutes";
@@ -23,28 +24,43 @@ import embeddingRoutes from "./routes/embeddingRoutes";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
-// import { initializeDefaultProducts } from "./services/ecosystemProductService";
+import { initializeProductsIfNeeded } from "./services/databaseManagement";
 import { initializeStorage } from "./services/supabaseStorage";
 
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 4000;
 
 // trust proxy
 app.set("trust proxy", 1);
 
 // global middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  contentSecurityPolicy: false  // Disable CSP for now to test
+}));
 app.use(morgan("combined"));
 app.use(express.json({ limit: "50mb" })); // Increase payload limit for large embedding requests
+// Log CORS configuration for debugging
+console.log("CORS Configuration:", {
+  DASHBOARD_DEV: ENV.CORS_ORIGIN_DASHBOARD_DEV,
+  DASHBOARD_STAGING: ENV.CORS_ORIGIN_DASHBOARD_STAGING,
+  DASHBOARD_PROD: ENV.CORS_ORIGIN_DASHBOARD_PROD,
+});
+
 app.use(
   cors({
-    origin: [
+    origin: createDynamicOriginHandler([
       ENV.CORS_ORIGIN_DASHBOARD_STAGING,
       ENV.CORS_ORIGIN_DASHBOARD_PROD,
       ENV.CORS_ORIGIN_DASHBOARD_DEV,
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    ]),
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true, // Allow credentials for authenticated requests
+    allowedHeaders: ["Content-Type", "Authorization", "x-api-key", "x-admin-key"],
+    exposedHeaders: ["Content-Length", "Content-Type"],
+    maxAge: 86400, // Cache preflight for 24 hours
   })
 );
 
@@ -107,9 +123,18 @@ const startServer = async () => {
     // Initialize storage buckets
     console.log("📦 Initializing storage buckets...");
     await initializeStorage();
+    console.log("✅ Storage initialization completed");
 
-    console.log("✅ Storage initialization completed successfully");
-    console.log("💡 Use POST /api/admin/products/initialize to set up default products");
+    // Initialize products from config if needed (with tracking)
+    console.log("🛍️ Checking product initialization...");
+    await initializeProductsIfNeeded();
+    
+    console.log("✅ All initialization completed successfully");
+    console.log("💡 Database Management Endpoints:");
+    console.log("   GET  /api/admin/database/status - Check initialization status");
+    console.log("   POST /api/admin/database/reset - Reset entire database");
+    console.log("   POST /api/admin/database/reset-and-reinitialize - Reset and reinitialize");
+    console.log("   POST /api/admin/database/force-reinitialize-products - Force reinitialize products");
   } catch (error) {
     console.error("❌ Initialization failed:", error);
     process.exit(1);

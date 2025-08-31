@@ -14,6 +14,14 @@ import {
   initializeCompleteSystem,
   cleanupAndReinitializeProducts,
 } from "../services/ecosystemProductService";
+import {
+  checkInitializationStatus,
+  initializeProductsIfNeeded,
+  resetDatabase,
+  resetAndReinitialize,
+  forceReinitializeProducts,
+  getDatabaseStats
+} from "../services/databaseManagement";
 
 /**
  * Get all users (admin only)
@@ -141,10 +149,11 @@ export const getSystemStatsController: RequestHandler = async (req, res) => {
 
 
 /**
- * Initialize default products only (admin only)
+ * Initialize default products only (admin only) - LEGACY
  * This will create the default products if they don't exist, but won't overwrite existing ones
+ * @deprecated Use initializeProductsController instead
  */
-export const initializeProductsController: RequestHandler = async (
+export const legacyInitializeProductsController: RequestHandler = async (
   req,
   res
 ) => {
@@ -524,6 +533,155 @@ export const deleteAdminEcosystemProductController: RequestHandler = async (req,
     res.status(400).json({
       success: false,
       error: error instanceof Error ? error.message : "Failed to delete ecosystem product",
+    });
+  }
+};
+
+/**
+ * Get database initialization status
+ */
+export const getDatabaseStatusController: RequestHandler = async (req, res) => {
+  try {
+    const status = await checkInitializationStatus();
+    const stats = await getDatabaseStats();
+    
+    res.json({
+      success: true,
+      data: {
+        initialization: status,
+        statistics: stats
+      }
+    });
+  } catch (error) {
+    console.error("Error getting database status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get database status"
+    });
+  }
+};
+
+/**
+ * Initialize products if needed
+ */
+export const initializeProductsController: RequestHandler = async (req, res) => {
+  try {
+    const wasInitialized = await initializeProductsIfNeeded();
+    
+    res.json({
+      success: true,
+      data: {
+        initialized: wasInitialized,
+        message: wasInitialized 
+          ? "Products initialized successfully from config" 
+          : "Products already initialized"
+      }
+    });
+  } catch (error) {
+    console.error("Error initializing products:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to initialize products"
+    });
+  }
+};
+
+/**
+ * Reset database (requires confirmation)
+ */
+export const resetDatabaseController: RequestHandler = async (req, res) => {
+  try {
+    const { confirm, skip_confirmation } = req.body;
+    
+    if (!skip_confirmation && confirm !== "RESET_DATABASE") {
+      return res.status(400).json({
+        success: false,
+        error: "Confirmation required. Send { confirm: 'RESET_DATABASE' } to proceed"
+      });
+    }
+    
+    await resetDatabase(true); // Skip CLI confirmation since we have API confirmation
+    
+    res.json({
+      success: true,
+      message: "Database reset complete. Run initialize endpoint to add products."
+    });
+  } catch (error) {
+    console.error("Error resetting database:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to reset database"
+    });
+  }
+};
+
+/**
+ * Reset and reinitialize database
+ */
+export const resetAndReinitializeController: RequestHandler = async (req, res) => {
+  try {
+    const { confirm } = req.body;
+    
+    if (confirm !== "RESET_AND_REINITIALIZE") {
+      return res.status(400).json({
+        success: false,
+        error: "Confirmation required. Send { confirm: 'RESET_AND_REINITIALIZE' } to proceed"
+      });
+    }
+    
+    await resetAndReinitialize(true);
+    const stats = await getDatabaseStats();
+    
+    res.json({
+      success: true,
+      message: "Database reset and reinitialized successfully",
+      data: {
+        statistics: stats
+      }
+    });
+  } catch (error) {
+    console.error("Error resetting and reinitializing:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to reset and reinitialize database"
+    });
+  }
+};
+
+/**
+ * Force reinitialize products (overwrites existing)
+ */
+export const forceReinitializeProductsController: RequestHandler = async (req, res) => {
+  try {
+    const { confirm } = req.body;
+    
+    if (confirm !== "FORCE_REINITIALIZE") {
+      return res.status(400).json({
+        success: false,
+        error: "Confirmation required. Send { confirm: 'FORCE_REINITIALIZE' } to proceed"
+      });
+    }
+    
+    await forceReinitializeProducts();
+    const products = await getAllProducts();
+    
+    res.json({
+      success: true,
+      message: "Products force reinitialized successfully",
+      data: {
+        product_count: products.length,
+        products: products.map((p: any) => ({
+          name: p.name,
+          slug: p.slug,
+          version: p.version
+        }))
+      }
+    });
+  } catch (error) {
+    console.error("Error force reinitializing products:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to force reinitialize products"
     });
   }
 };

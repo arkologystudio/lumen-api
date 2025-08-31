@@ -47,7 +47,7 @@ router.get("/:siteId/activities/stats", authenticateUser, getSiteActivityStatsCo
 // Search endpoint for WordPress plugin visitors with license validation
 router.post("/:site_id/search", 
   scopedApiKeyAuth(['search']),
-  validateQueryLicense('lumen-search-api'),
+  validateQueryLicense(), // Accepts any valid product license
   searchRateLimiter,
   trackQuery(),
   searchSiteController

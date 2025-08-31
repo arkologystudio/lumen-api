@@ -59,13 +59,26 @@ The application requires 20+ environment variables. Key categories:
 
 ## Important Development Notes
 
+### Database Connection Issues
+**IMPORTANT**: The Supabase database often has connection issues from local development environments. When encountering database connection errors:
+
+1. **DO NOT** repeatedly try `npm run db:push` - it uses the DIRECT_URL which often fails
+2. **INSTEAD**, work with the existing schema - the pooled connection (DATABASE_URL) usually works fine for queries
+3. **The SystemConfig table** may not exist yet - this is OK, the system handles it gracefully
+4. **For schema changes**: These need to be applied through Supabase dashboard or wait for better connectivity
+
+Common error patterns to ignore:
+- "Can't reach database server at db.*.supabase.co:5432" - This is the direct connection, not critical
+- "The table `public.system_config` does not exist" - Expected if schema hasn't been pushed
+- These errors don't prevent the app from working with the pooled connection
+
 ### TypeScript Usage
 All code is strictly typed. Always run `npm run typecheck` before committing changes.
 
 ### Database Changes
 After modifying `prisma/schema.prisma`:
 1. Run `npm run db:generate` to update Prisma client
-2. Run `npm run db:push` to apply changes to database
+2. Run `npm run db:push` to apply changes to database (Note: This may fail due to connection issues - see above)
 
 ### Vector Search Implementation
 Uses pgvector with Prisma for semantic similarity. Search queries are processed through `services/unifiedSearch.ts` which handles both post content and WooCommerce products.
@@ -78,6 +91,13 @@ All endpoints return structured error responses with proper HTTP codes. Use the 
 
 ### Plugin Marketplace Features
 The system includes a full plugin marketplace with license management, file storage via Supabase Storage, and download tracking. Product management follows the ecosystem patterns in `routes/ecosystem.ts`.
+
+### Product Management
+**SINGLE SOURCE OF TRUTH**: Products are defined in `src/config/products.config.json`
+- Current products: AI Readiness Analysis ($19), Neural Search - Knowledge ($29), Neural Search - Product ($49)
+- Products auto-initialize on first server startup if database is empty
+- To reset products: `npm run db:reset-reinit` (this will delete ALL data)
+- The SystemConfig table tracks initialization but may not exist - this is handled gracefully
 
 ## Functional Programming and TypeScript Guidelines
 

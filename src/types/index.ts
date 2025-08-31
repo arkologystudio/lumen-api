@@ -802,11 +802,13 @@ export interface LicenseUsageResponse {
 // License Status Types
 export type LicenseStatus = "active" | "expired" | "revoked" | "suspended";
 export type LicenseType =
-  | "trial"
+  | "trial" // Legacy: maps to "free"
+  | "free"
   | "standard"
-  | "standard_plus"
+  | "standard_plus" // Legacy: maps to "pro"
+  | "pro"
   | "premium"
-  | "premium_plus"
+  | "premium_plus" // Legacy: kept for compatibility
   | "enterprise";
 export type BillingPeriod = "monthly" | "annual";
 export type QueryType = "search" | "embed" | "analysis";

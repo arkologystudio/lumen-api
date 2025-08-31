@@ -1,0 +1,287 @@
+{
+  "$schema": "./products.schema.json",
+  "version": "1.1.0",
+  "lastUpdated": "2025-08-22",
+  "products": [
+    {
+      "name": "AI Ready Diagnostics - Beacon",
+      "slug": "ai-ready-diagnostics",
+      "description": "Comprehensive AI readiness diagnostics for your content with optimization insights.",
+      "category": "analysis",
+      "version": "1.0",
+      "is_active": true,
+      "is_beta": false,
+      "base_price": 0.0,
+      "usage_based": false,
+      "features": [
+        "Simple diagnostics (Free tier)",
+        "Comprehensive diagnostics + integration services (Pro tier)",
+        "Multi-site support (Enterprise tier)",
+        "Auto-scheduled audits",
+        "Manual scan capabilities",
+        "Rate limiting per IP"
+      ],
+      "limits": {
+        "free": { "sites": 1, "scans_per_month": -1 },
+        "pro": { "sites": 1, "scans_per_month": 30, "auto_scheduled": 1 },
+        "enterprise": { "sites": -1, "scans_per_month": 30 }
+      },
+      "extended_documentation": "AI readiness diagnostics with free tier for simple diagnostics and paid tiers for comprehensive analysis."
+    },
+    {
+      "name": "Neural Search Knowledge - Lumen",
+      "slug": "neural-search-knowledge",
+      "description": "AI-powered semantic search for knowledge bases, documentation, and blog content.",
+      "category": "search",
+      "version": "1.0",
+      "is_active": true,
+      "is_beta": false,
+      "base_price": 9.0,
+      "usage_based": true,
+      "features": [
+        "Semantic search across all content",
+        "Multi-language support",
+        "Real-time indexing",
+        "Relevance scoring",
+        "Search analytics",
+        "API access"
+      ],
+      "limits": {
+        "standard": { "sites": 1, "queries_per_month": 1000 },
+        "premium": { "sites": 1, "queries_per_month": 10000 },
+        "enterprise": { "sites": -1, "queries_per_month": -1 }
+      },
+      "extended_documentation": "Advanced semantic search for knowledge discovery and content exploration."
+    },
+    {
+      "name": "Neural Search Woocommerce - Lumen",
+      "slug": "neural-search-woocommerce",
+      "description": "Advanced WooCommerce search with natural language processing for e-commerce sites.",
+      "category": "search",
+      "version": "1.0",
+      "is_active": true,
+      "is_beta": false,
+      "base_price": 19.0,
+      "usage_based": true,
+      "features": [
+        "Natural language product search",
+        "Advanced filtering and faceting",
+        "Visual similarity search",
+        "Recommendation engine",
+        "Inventory-aware results",
+        "Analytics dashboard"
+      ],
+      "limits": {
+        "standard": { "sites": 1, "queries_per_month": 1000 },
+        "premium": { "sites": 1, "queries_per_month": 10000 },
+        "enterprise": { "sites": -1, "queries_per_month": -1 }
+      },
+      "extended_documentation": "Powerful e-commerce search with natural language processing and advanced filtering."
+    }
+  ],
+  "pricingTiers": [
+    {
+      "product_slug": "ai-ready-diagnostics",
+      "tier_name": "free",
+      "display_name": "Free",
+      "description": "Simple diagnostics",
+      "monthly_price": 0.00,
+      "annual_price": 0.00,
+      "max_queries": null,
+      "max_sites": 1,
+      "agent_api_access": false,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Unlimited scans with rate limit per IP",
+        "Simple diagnostics",
+        "1 site"
+      ],
+      "is_active": true,
+      "sort_order": 1
+    },
+    {
+      "product_slug": "ai-ready-diagnostics",
+      "tier_name": "pro",
+      "display_name": "Pro",
+      "description": "Comprehensive diagnostics + integration services",
+      "monthly_price": 9.00,
+      "annual_price": 97.00,
+      "max_queries": 30,
+      "max_sites": 1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "1 auto-scheduled audit per month",
+        "Up to 30 manual scans per month",
+        "Comprehensive diagnostics",
+        "Integration services",
+        "API access"
+      ],
+      "is_active": true,
+      "sort_order": 2
+    },
+    {
+      "product_slug": "ai-ready-diagnostics",
+      "tier_name": "enterprise",
+      "display_name": "Enterprise",
+      "description": "6+ Sites",
+      "monthly_price": 6.00,
+      "annual_price": 65.00,
+      "max_queries": 30,
+      "max_sites": -1,
+      "agent_api_access": true,
+      "extra_site_price": 6.00,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "30 scans per month per site",
+        "Per-site pricing at $6/month",
+        "Comprehensive diagnostics",
+        "Full API access",
+        "Priority support"
+      ],
+      "is_active": true,
+      "sort_order": 3
+    },
+    {
+      "product_slug": "neural-search-knowledge",
+      "tier_name": "standard",
+      "display_name": "Standard",
+      "description": "Standard neural search for knowledge bases",
+      "monthly_price": 9.00,
+      "annual_price": 97.00,
+      "max_queries": 1000,
+      "max_sites": 1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Site embedding",
+        "Up to 1,000 queries per month",
+        "Single site",
+        "API access"
+      ],
+      "is_active": true,
+      "sort_order": 1
+    },
+    {
+      "product_slug": "neural-search-knowledge",
+      "tier_name": "premium",
+      "display_name": "Premium",
+      "description": "Premium neural search with higher limits",
+      "monthly_price": 19.00,
+      "annual_price": 205.00,
+      "max_queries": 10000,
+      "max_sites": 1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Site embedding",
+        "Up to 10,000 queries per month",
+        "Single site",
+        "API access",
+        "Priority support"
+      ],
+      "is_active": true,
+      "sort_order": 2
+    },
+    {
+      "product_slug": "neural-search-knowledge",
+      "tier_name": "enterprise",
+      "display_name": "Enterprise",
+      "description": "Multi Site Premium+",
+      "monthly_price": 0.00,
+      "annual_price": 0.00,
+      "max_queries": null,
+      "max_sites": -1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Multi-site support",
+        "Custom query limits",
+        "Full API access",
+        "Dedicated support",
+        "Custom pricing"
+      ],
+      "is_active": true,
+      "sort_order": 3
+    },
+    {
+      "product_slug": "neural-search-woocommerce",
+      "tier_name": "standard",
+      "display_name": "Standard",
+      "description": "Standard WooCommerce search",
+      "monthly_price": 19.00,
+      "annual_price": 205.00,
+      "max_queries": 1000,
+      "max_sites": 1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Site embedding",
+        "Up to 1,000 queries per month",
+        "Single site",
+        "API access"
+      ],
+      "is_active": true,
+      "sort_order": 1
+    },
+    {
+      "product_slug": "neural-search-woocommerce",
+      "tier_name": "premium",
+      "display_name": "Premium",
+      "description": "Premium WooCommerce search",
+      "monthly_price": 39.00,
+      "annual_price": 421.00,
+      "max_queries": 10000,
+      "max_sites": 1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Site embedding",
+        "Up to 10,000 queries per month",
+        "Single site",
+        "API access",
+        "Priority support"
+      ],
+      "is_active": true,
+      "sort_order": 2
+    },
+    {
+      "product_slug": "neural-search-woocommerce",
+      "tier_name": "enterprise",
+      "display_name": "Enterprise",
+      "description": "Contact for pricing",
+      "monthly_price": 0.00,
+      "annual_price": 0.00,
+      "max_queries": null,
+      "max_sites": -1,
+      "agent_api_access": true,
+      "extra_site_price": null,
+      "overage_price": null,
+      "custom_embedding_markup": null,
+      "features": [
+        "Custom query limits",
+        "Multi-site support",
+        "Full API access",
+        "Dedicated support",
+        "Custom pricing"
+      ],
+      "is_active": true,
+      "sort_order": 3
+    }
+  ]
+}

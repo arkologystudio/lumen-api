@@ -855,3 +855,20 @@ model DiagnosticSchedule {
   @@index([next_run_at])
   @@map("diagnostic_schedules")
 }
+
+// System Configuration
+model SystemConfig {
+  id String @id @default(uuid())
+  
+  // Configuration key-value pairs
+  key   String @unique
+  value Json
+  
+  // Metadata
+  description String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  @@map("system_config")
+}
+}

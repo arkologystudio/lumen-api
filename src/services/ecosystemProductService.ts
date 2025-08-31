@@ -12,9 +12,29 @@ import {
   CreateProductRequest,
   UpdateProductRequest,
 } from "../types";
+import * as fs from "fs";
+import * as path from "path";
 
-// Predefined products - aligned with licensing guide
-const DEFAULT_PRODUCTS = [
+// Load products from config file - single source of truth
+const loadProductConfig = () => {
+  const configPath = path.join(__dirname, "../config/products.config.json");
+  try {
+    const configData = fs.readFileSync(configPath, "utf-8");
+    const config = JSON.parse(configData);
+    console.log(`✅ Loaded product config version ${config.version}`);
+    return config;
+  } catch (error) {
+    console.error("❌ Failed to load products config:", error);
+    throw new Error("Failed to load product configuration. Please ensure products.config.json exists.");
+  }
+};
+
+const productConfig = loadProductConfig();
+const DEFAULT_PRODUCTS = productConfig.products;
+const DEFAULT_PRICING_TIERS = productConfig.pricingTiers;
+
+// Legacy array kept for reference only - DO NOT USE
+/* const LEGACY_DEFAULT_PRODUCTS = [
   {
     name: "AI Readiness Analysis",
     slug: "ai-readiness-analysis",
@@ -90,10 +110,10 @@ const DEFAULT_PRODUCTS = [
     },
     extended_documentation: "Powerful e-commerce search with natural language processing and advanced filtering.",
   }
-];
+]; */
 
-// Default pricing tiers for each product
-const DEFAULT_PRICING_TIERS = [
+// Legacy pricing tiers kept for reference only - DO NOT USE
+/* const LEGACY_DEFAULT_PRICING_TIERS = [
   // AI Readiness Analysis Pricing Tiers
   {
     product_slug: "ai-readiness-analysis",
@@ -458,7 +478,7 @@ const DEFAULT_PRICING_TIERS = [
     is_active: true,
     sort_order: 5
   }
-];
+]; */
 
 /**
  * Initialize default products in the database
