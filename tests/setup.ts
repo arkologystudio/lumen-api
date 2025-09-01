@@ -41,6 +41,34 @@ jest.mock('@prisma/client', () => ({
       create: jest.fn(),
       findMany: jest.fn(),
     },
+    diagnosticAudit: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    diagnosticPage: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    diagnosticIndicator: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn(),
+    },
+    diagnosticScore: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    diagnosticSchedule: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     $disconnect: jest.fn(),
   })),
 }));
