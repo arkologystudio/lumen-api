@@ -576,9 +576,12 @@ export const embedSiteController = async (
     // Extract clean text from posts
     const postsWithExtractedText = extractTextFromPosts(reconstructedPosts);
 
-    // Generate statistics for each post
+    // Generate statistics for each post and add site information
     const postsWithStats = postsWithExtractedText.map((post) => ({
       ...post,
+      site_id: site_id,
+      site_name: site.name,
+      site_url: site.url,
       textStats: getTextStats(post.extractedText),
     }));
 

@@ -118,16 +118,8 @@ export const validateQueryLicense = (productSlug?: string) => {
         }
       }
 
-      // Check API access permissions for agent requests
-      const isAgentRequest = req.headers['x-agent-id'] || req.headers['user-agent']?.includes('bot');
-      if (isAgentRequest && !license.agent_api_access) {
-        res.status(403).json({
-          success: false,
-          error: "Agent access not permitted",
-          message: "Your license does not include agent/API access. Please upgrade to a Plus or Enterprise tier.",
-        });
-        return;
-      }
+      // Agent requests are now allowed equally with human requests
+      // Detection moved to trackQuery middleware for usage analytics
 
       // Add license info to request for controllers to use
       req.license = license;
@@ -143,7 +135,6 @@ export const validateQueryLicense = (productSlug?: string) => {
         'X-Query-Usage-Remaining': remainingQueries ? String(remainingQueries) : 'unlimited',
         'X-Query-Period-End': license.query_period_end || '',
         'X-License-Type': license.license_type,
-        'X-Agent-Access': String(license.agent_api_access),
       });
 
       next();
@@ -200,7 +191,11 @@ export const trackQuery = () => {
         // Track usage asynchronously (don't block response)
         setImmediate(async () => {
           try {
-            const isAgentRequest = !!(req.headers['x-agent-id'] || req.headers['user-agent']?.includes('bot'));
+            // Detect if this is an agent request for analytics (agents now have equal access)
+            const agentId = req.headers['x-agent-id'] as string;
+            const agentName = req.headers['x-agent-name'] as string;
+            const originalUserAgent = req.headers['x-original-user-agent'] as string;
+            const isAgentRequest = !!(agentId || agentName || req.headers['user-agent']?.includes('bot'));
             
             await trackQueryUsage(req.license!.id, {
               site_id: req.params.site_id,
@@ -208,8 +203,10 @@ export const trackQuery = () => {
               endpoint: req.route?.path || req.path,
               query_text: req.body?.query,
               ip_address: req.ip,
-              user_agent: req.headers['user-agent'],
+              user_agent: originalUserAgent || req.headers['user-agent'],
               is_agent_request: isAgentRequest,
+              agent_id: agentId,
+              agent_name: agentName,
               response_time_ms: Date.now() - (req as any).startTime,
               results_count: (res as any).resultsCount || 0,
               billable: true,

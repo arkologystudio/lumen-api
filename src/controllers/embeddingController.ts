@@ -173,9 +173,12 @@ export const embedTest: RequestHandler = async (req, res) => {
     // Extract clean text from posts
     const postsWithExtractedText = extractTextFromPosts(reconstructedPosts);
 
-    // Generate statistics for each post
+    // Generate statistics for each post and add site information
     const postsWithStats = postsWithExtractedText.map((post) => ({
       ...post,
+      site_id: batchData.site_id,
+      site_name: batchData.site_name,
+      site_url: batchData.site_url,
       textStats: getTextStats(post.extractedText),
     }));
 
